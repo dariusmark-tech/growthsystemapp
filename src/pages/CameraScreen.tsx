@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { AppCard, CardLabel, StatusBadge, SensorBar } from "@/components/shared/SharedComponents";
+import { WidgetCard, CardLabel, StatusBadge, SensorBar } from "@/components/shared/SharedComponents";
 import { MOCK_CLASSIFICATION } from "@/utils/mockData";
+import { Camera, Upload, ArrowLeft } from "lucide-react";
 
 function nutStatus(curr: number, tgt: number) {
   const d = ((curr - tgt) / tgt) * 100;
@@ -14,67 +15,65 @@ function FullDetailsPage({ result, onBack }: { result: typeof MOCK_CLASSIFICATIO
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-background">
-        <button className="flex items-center gap-1" onClick={onBack}>
-          <span className="text-green-dark text-lg font-bold">←</span>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border/50 bg-card/80 backdrop-blur-xl">
+        <button className="flex items-center gap-1.5" onClick={onBack}>
+          <ArrowLeft size={16} className="text-green-dark" />
           <span className="text-green-dark text-sm font-semibold">Back</span>
         </button>
-        <span className="text-text-primary text-[15px] font-extrabold tracking-wide">Analysis</span>
+        <span className="text-text-primary text-[14px] font-bold">Analysis</span>
         <div className="w-[60px]" />
       </div>
 
-      <div className="p-4 pb-10 no-scrollbar overflow-auto">
-        <h1 className="text-[22px] font-extrabold text-text-primary tracking-tight mb-4 leading-[30px]">
-          Plant Classification<br />& Growth Stage Analysis
+      <div className="p-4 pb-10 no-scrollbar overflow-auto animate-slide-up">
+        <h1 className="text-[22px] font-bold text-text-primary tracking-tight mb-4">
+          Plant Classification & Growth Analysis
         </h1>
 
         {/* Classification Card */}
-        <AppCard className="mb-3">
-          <CardLabel>Plant Classification & Growth Stage</CardLabel>
-          <div className="rounded-lg overflow-hidden h-[180px] bg-card-alt border border-border mb-3 relative flex items-center justify-center">
-            <span className="text-4xl">🌱</span>
-            <span className="text-text-faint text-xs ml-2">Captured image</span>
-            <div className="absolute bottom-2.5 left-2.5 bg-green-dark rounded-full px-3 py-1">
-              <span className="text-primary-foreground text-xs font-bold">{result.plantName}</span>
+        <WidgetCard className="mb-3">
+          <CardLabel>Classification</CardLabel>
+          <div className="rounded-2xl overflow-hidden h-[160px] bg-gradient-to-br from-green-light to-accent/30 border border-border/40 mb-3 relative flex items-center justify-center">
+            <span className="text-5xl">🌱</span>
+            <div className="absolute bottom-2.5 left-2.5 bg-green-dark/90 backdrop-blur-sm rounded-full px-3 py-1">
+              <span className="text-primary-foreground text-xs font-semibold">{result.plantName}</span>
             </div>
           </div>
 
-          <div className="mt-1">
-            <p className="text-xs font-bold text-text-muted mb-2">Details:</p>
+          <div className="bg-card-alt/50 rounded-xl border border-border/40 overflow-hidden">
             {[
-              ['Plant classification', result.plantName],
+              ['Classification', result.plantName],
               ['Growth stage', result.stage],
-            ].map(([key, val]) => (
-              <div key={key} className="flex justify-between items-center py-1.5 border-b border-border">
-                <span className="text-xs text-text-muted">{key}</span>
+            ].map(([key, val], idx) => (
+              <div key={key} className={`flex justify-between items-center px-3.5 py-2.5 ${idx === 0 ? 'border-b border-border/30' : ''}`}>
+                <span className="text-[12px] text-text-muted">{key}</span>
                 <span className="text-[13px] font-bold text-text-primary">{val}</span>
               </div>
             ))}
           </div>
 
           <div className="mt-4">
-            <p className="text-[11px] font-bold text-text-muted mb-2">AI Confidence</p>
+            <p className="text-[11px] font-semibold text-text-muted mb-2.5">AI Confidence</p>
             {Object.entries(result.confidence).map(([stage, pct]) => (
-              <div key={stage} className="flex items-center gap-2 mb-1.5">
+              <div key={stage} className="flex items-center gap-2 mb-2">
                 <span className="text-[11px] text-text-muted w-20">{stage}</span>
-                <div className="flex-1 h-[5px] bg-border rounded-full overflow-hidden">
+                <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
                   <div
-                    className="h-full rounded-full"
+                    className="h-full rounded-full transition-all duration-700"
                     style={{
                       width: `${pct}%`,
                       backgroundColor: stage === result.stage ? 'hsl(var(--green-dark))' : 'hsl(var(--border))',
                     }}
                   />
                 </div>
-                <span className="text-[11px] font-bold text-text-primary w-[30px] text-right">{pct}%</span>
+                <span className="text-[11px] font-bold text-text-primary w-8 text-right">{pct}%</span>
               </div>
             ))}
           </div>
-        </AppCard>
+        </WidgetCard>
 
         {/* Growth Prediction */}
-        <AppCard className="mb-3">
-          <CardLabel>Growth Prediction Analysis</CardLabel>
+        <WidgetCard className="mb-3">
+          <CardLabel>Growth Prediction</CardLabel>
           <div className="flex items-start justify-between my-3">
             {['Seedling', 'Vegetative', 'Fruiting', 'Harvest'].map((stage, i) => {
               const stages = ['Seedling', 'Vegetative', 'Fruiting', 'Harvest'];
@@ -85,11 +84,11 @@ function FullDetailsPage({ result, onBack }: { result: typeof MOCK_CLASSIFICATIO
                   {i > 0 && (
                     <div className={`absolute top-[9px] right-1/2 w-full h-0.5 ${done ? 'bg-green' : 'bg-border'}`} />
                   )}
-                  <div className={`w-5 h-5 rounded-full border-2 mb-1.5 relative z-10 ${
-                    current ? 'bg-green border-green-dark scale-125' :
-                    done ? 'bg-green-light border-green' : 'bg-border border-border'
+                  <div className={`w-5 h-5 rounded-full border-2 mb-1.5 relative z-10 transition-all ${
+                    current ? 'bg-green border-green-dark scale-125 shadow-sm' :
+                    done ? 'bg-green-light border-green' : 'bg-muted border-border'
                   }`} />
-                  <span className={`text-[9px] text-center ${current ? 'text-green-dark font-bold' : 'text-text-muted'}`}>
+                  <span className={`text-[9px] text-center ${current ? 'text-green-dark font-bold' : 'text-text-faint'}`}>
                     {stage}
                   </span>
                 </div>
@@ -97,52 +96,49 @@ function FullDetailsPage({ result, onBack }: { result: typeof MOCK_CLASSIFICATIO
             })}
           </div>
 
-          <div className="mt-3">
-            <p className="text-xs font-bold text-text-muted mb-2">Details:</p>
+          <div className="bg-card-alt/50 rounded-xl border border-border/40 overflow-hidden mt-3">
             {[
               ['Current stage', result.stage],
-              ['Days to next stage', `${result.daysToNext} days`],
-              ['Predicted harvest', result.harvestDate],
-            ].map(([key, val]) => (
-              <div key={key} className="flex justify-between items-center py-1.5 border-b border-border">
-                <span className="text-xs text-text-muted">{key}</span>
-                <span className={`text-[13px] font-bold ${key === 'Predicted harvest' ? 'text-green-dark' : 'text-text-primary'}`}>{val}</span>
+              ['Days to next', `${result.daysToNext} days`],
+              ['Harvest date', result.harvestDate],
+            ].map(([key, val], idx) => (
+              <div key={key} className={`flex justify-between items-center px-3.5 py-2.5 ${idx < 2 ? 'border-b border-border/30' : ''}`}>
+                <span className="text-[12px] text-text-muted">{key}</span>
+                <span className={`text-[13px] font-bold ${key === 'Harvest date' ? 'text-green-dark' : 'text-text-primary'}`}>{val}</span>
               </div>
             ))}
           </div>
-        </AppCard>
+        </WidgetCard>
 
         {/* Nutrient Adjustments */}
-        <AppCard>
-          <CardLabel className="mb-2">Recommended Nutrient Adjustments</CardLabel>
+        <WidgetCard>
+          <CardLabel>Nutrient Adjustments</CardLabel>
           {result.nutrients.map(({ label, curr, tgt, color }) => {
             const st = nutStatus(curr, tgt);
             return (
-              <div key={label} className="mb-3">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-[13px] font-semibold text-text-primary">{label}</span>
+              <div key={label} className="mb-4 last:mb-0">
+                <div className="flex justify-between items-center mb-1.5">
+                  <span className="text-[13px] font-medium text-text-primary">{label}</span>
                   <StatusBadge label={st.label} type={st.type} size="sm" />
                 </div>
-                <div className="flex justify-end gap-4 mb-1.5">
-                  <span className="text-[11px] text-text-muted">Current: <strong className="text-text-primary">{curr} ppm</strong></span>
-                  <span className="text-[11px] text-text-muted">Target: <strong className="text-text-primary">{tgt} ppm</strong></span>
+                <div className="flex justify-end gap-4 mb-2">
+                  <span className="text-[11px] text-text-faint">Current: <strong className="text-text-primary">{curr} ppm</strong></span>
+                  <span className="text-[11px] text-text-faint">Target: <strong className="text-text-primary">{tgt} ppm</strong></span>
                 </div>
-                <div className="h-[5px] bg-green-light rounded-full overflow-hidden">
-                  <div className="h-full rounded-full" style={{ width: `${(curr / 400) * 100}%`, backgroundColor: nutColorMap[color] }} />
-                </div>
+                <SensorBar value={curr} max={400} color={nutColorMap[color]} />
               </div>
             );
           })}
 
-          <div className="flex gap-2 mt-4 pt-4 border-t border-border">
-            <button className="flex-1 rounded-sm p-2.5 text-center border border-danger-border bg-card text-danger text-xs font-bold">
+          <div className="flex gap-2 mt-4 pt-4 border-t border-border/50">
+            <button className="flex-1 rounded-xl py-2.5 text-center border border-border/60 bg-card/80 text-text-muted text-xs font-semibold">
               📄 Export PDF
             </button>
-            <button className="flex-1 rounded-sm p-2.5 text-center border border-success-border bg-card text-success text-xs font-bold">
+            <button className="flex-1 rounded-xl py-2.5 text-center border border-border/60 bg-card/80 text-text-muted text-xs font-semibold">
               📊 Export CSV
             </button>
           </div>
-        </AppCard>
+        </WidgetCard>
       </div>
     </div>
   );
@@ -181,89 +177,92 @@ export default function CameraScreen() {
 
   return (
     <div className="p-4 pb-10 no-scrollbar overflow-auto">
-      <h1 className="text-[22px] font-extrabold text-text-primary tracking-tight mt-2 mb-4">
-        Capture & Upload
-      </h1>
+      <div className="mt-3 mb-5">
+        <p className="text-text-faint text-xs font-medium mb-0.5">AI Analysis</p>
+        <h1 className="text-[26px] font-bold text-text-primary tracking-tight">Capture</h1>
+      </div>
 
-      {/* Upload box */}
-      <button
-        className="w-full h-[160px] bg-card-alt rounded-lg border-[1.5px] border-dashed border-border flex items-center justify-center mb-3"
-        onClick={handleUpload}
-      >
-        {imageUri ? (
-          <div className="text-center">
-            <span className="text-3xl block mb-1.5">🖼️</span>
-            <span className="text-[13px] font-semibold text-text-muted">Photo ready</span>
-            <p className="text-[10px] text-text-faint mt-1">Tap to choose a different photo</p>
-          </div>
-        ) : (
-          <div className="text-center">
-            <span className="text-3xl block mb-1.5">📤</span>
-            <span className="text-[13px] font-semibold text-text-muted">Upload photo</span>
-            <p className="text-[10px] text-text-faint mt-1">Tap to select from gallery</p>
-          </div>
-        )}
-      </button>
+      {/* Upload Widget */}
+      <WidgetCard className="mb-3 !p-0 overflow-hidden" onClick={handleUpload}>
+        <div className="h-[140px] bg-gradient-to-br from-green-light via-accent/30 to-card-alt flex items-center justify-center border-b border-border/30">
+          {imageUri ? (
+            <div className="text-center">
+              <span className="text-4xl block mb-2">🖼️</span>
+              <span className="text-[12px] font-medium text-text-muted">Photo ready</span>
+              <p className="text-[10px] text-text-faint mt-0.5">Tap to change</p>
+            </div>
+          ) : (
+            <div className="text-center">
+              <div className="w-12 h-12 rounded-2xl bg-card/80 backdrop-blur-sm border border-border/60 flex items-center justify-center mx-auto mb-2">
+                <Upload size={20} className="text-text-muted" />
+              </div>
+              <span className="text-[12px] font-medium text-text-muted">Upload a photo</span>
+              <p className="text-[10px] text-text-faint mt-0.5">Tap to select from gallery</p>
+            </div>
+          )}
+        </div>
+      </WidgetCard>
 
       {/* Capture button */}
       <button
-        className="w-full bg-green-dark rounded-md py-3.5 text-center text-primary-foreground font-extrabold text-sm mb-4"
+        className="w-full bg-gradient-to-r from-green-dark to-green rounded-2xl py-3.5 text-center text-primary-foreground font-bold text-sm mb-4 shadow-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
         onClick={handleCapture}
       >
-        📸 Capture Image
+        <Camera size={18} />
+        Capture Image
       </button>
 
       {/* Photo + Classify */}
       {imageUri && (
-        <div className="flex items-center gap-3 mb-4 bg-card-alt rounded-lg border border-border p-3">
-          <div className="flex-1 h-20 bg-background rounded-md border border-border flex items-center justify-center flex-col">
-            <span className="text-2xl">🌿</span>
-            <span className="text-[10px] text-text-muted mt-1">Photo</span>
+        <WidgetCard className="mb-4">
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-20 bg-gradient-to-br from-green-light to-accent/30 rounded-xl border border-border/40 flex items-center justify-center flex-col">
+              <span className="text-2xl">🌿</span>
+              <span className="text-[10px] text-text-faint mt-1">Preview</span>
+            </div>
+            <button
+              className={`bg-green-dark rounded-xl px-5 py-3.5 transition-all ${classifying ? 'opacity-60' : 'active:scale-95'}`}
+              onClick={handleClassify}
+              disabled={classifying}
+            >
+              <span className="text-primary-foreground font-bold text-[13px]">
+                {classifying ? 'Analysing…' : 'Classify'}
+              </span>
+            </button>
           </div>
-          <button
-            className={`bg-green-dark rounded-md px-5 py-3 ${classifying ? 'opacity-60' : ''}`}
-            onClick={handleClassify}
-            disabled={classifying}
-          >
-            <span className="text-primary-foreground font-extrabold text-[13px]">
-              {classifying ? 'Analysing…' : 'Classify'}
-            </span>
-          </button>
-        </div>
+        </WidgetCard>
       )}
 
       {/* Summary card */}
       {classified && result && (
-        <AppCard>
-          <CardLabel className="mb-0">Plant Classification & Growth Stage Analysis</CardLabel>
+        <WidgetCard className="animate-slide-up">
+          <CardLabel className="mb-0">Classification Results</CardLabel>
 
-          <div className="mt-3 mb-3">
+          <div className="mt-3 mb-3 bg-card-alt/50 rounded-xl border border-border/40 overflow-hidden">
             {[
               ['Plant', result.plantName],
-              ['Growth stage', result.stage],
+              ['Stage', result.stage],
               ['Confidence', `${result.confidence[result.stage as keyof typeof result.confidence]}%`],
-              ['Harvest est.', result.harvestDate],
-            ].map(([key, val], i) => (
-              <div key={key} className="flex justify-between items-center py-[7px] border-b border-border">
-                <span className="text-xs text-text-muted font-semibold">{key}</span>
-                {key === 'Growth stage' ? (
+              ['Harvest', result.harvestDate],
+            ].map(([key, val], idx) => (
+              <div key={key} className={`flex justify-between items-center px-3.5 py-2.5 ${idx < 3 ? 'border-b border-border/30' : ''}`}>
+                <span className="text-[12px] text-text-muted font-medium">{key}</span>
+                {key === 'Stage' ? (
                   <StatusBadge label={val as string} type="success" size="sm" />
                 ) : (
-                  <span className={`text-[13px] font-bold ${key === 'Harvest est.' ? 'text-green-dark' : 'text-text-primary'}`}>{val}</span>
+                  <span className={`text-[13px] font-bold ${key === 'Harvest' ? 'text-green-dark' : 'text-text-primary'}`}>{val}</span>
                 )}
               </div>
             ))}
           </div>
 
-          <div className="flex justify-end">
-            <button
-              className="px-4 py-2 rounded-full bg-green-light border border-green-dark text-green-dark text-[13px] font-bold"
-              onClick={() => setShowDetails(true)}
-            >
-              Full Details →
-            </button>
-          </div>
-        </AppCard>
+          <button
+            className="w-full py-2.5 rounded-xl bg-green-light/70 border border-success-border/50 text-green-dark text-[13px] font-semibold active:scale-[0.98] transition-transform"
+            onClick={() => setShowDetails(true)}
+          >
+            View Full Details →
+          </button>
+        </WidgetCard>
       )}
     </div>
   );
