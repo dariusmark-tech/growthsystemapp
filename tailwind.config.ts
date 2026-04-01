@@ -13,8 +13,12 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+      },
       colors: {
         border: "hsl(var(--border))",
+        "border-high": "hsl(var(--border-high))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
@@ -46,7 +50,35 @@ export default {
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
+          alt: "hsl(var(--card-alt))",
         },
+        green: {
+          DEFAULT: "hsl(var(--green))",
+          dark: "hsl(var(--green-dark))",
+          light: "hsl(var(--green-light))",
+        },
+        chart: {
+          amber: "hsl(var(--chart-amber))",
+          blue: "hsl(var(--chart-blue))",
+        },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          bg: "hsl(var(--success-bg))",
+          border: "hsl(var(--success-border))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          bg: "hsl(var(--warning-bg))",
+          border: "hsl(var(--warning-border))",
+        },
+        danger: {
+          DEFAULT: "hsl(var(--danger))",
+          bg: "hsl(var(--danger-bg))",
+          border: "hsl(var(--danger-border))",
+        },
+        "text-primary": "hsl(var(--text-primary))",
+        "text-muted": "hsl(var(--text-muted))",
+        "text-faint": "hsl(var(--text-faint))",
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
@@ -65,25 +97,22 @@ export default {
       },
       keyframes: {
         "accordion-down": {
-          from: {
-            height: "0",
-          },
-          to: {
-            height: "var(--radix-accordion-content-height)",
-          },
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
         },
         "accordion-up": {
-          from: {
-            height: "var(--radix-accordion-content-height)",
-          },
-          to: {
-            height: "0",
-          },
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
+        },
+        pulse: {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.5" },
         },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        pulse: "pulse 2s ease-in-out infinite",
       },
     },
   },
