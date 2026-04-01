@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { WidgetCard, StatusBadge } from "@/components/shared/SharedComponents";
+import { StatusBadge } from "@/components/shared/SharedComponents";
 import { MOCK_LOGS } from "@/utils/mockData";
 import { Settings } from "lucide-react";
 
@@ -11,25 +11,25 @@ export default function LogsScreen() {
 
   return (
     <div className="p-4 pb-10 no-scrollbar overflow-auto">
-      <div className="flex justify-between items-center mb-5 mt-3">
+      <div className="flex justify-between items-start mb-1 mt-2">
         <div>
-          <p className="text-text-faint text-xs font-medium mb-0.5">{MOCK_LOGS.length} entries</p>
-          <h1 className="text-[26px] font-bold text-text-primary tracking-tight">Records</h1>
+          <h1 className="text-[26px] font-extrabold text-text-primary tracking-tight">Records & Logs</h1>
+          <p className="text-text-muted text-xs">{MOCK_LOGS.length} entries recorded</p>
         </div>
-        <button className="w-9 h-9 rounded-2xl bg-card/80 backdrop-blur-sm border border-border/60 flex items-center justify-center shadow-sm">
+        <button className="w-8 h-8 rounded-full bg-muted flex items-center justify-center mt-1">
           <Settings size={16} className="text-text-muted" />
         </button>
       </div>
 
-      {/* Filter pills */}
-      <div className="flex gap-2 mb-4">
+      {/* Filter chips */}
+      <div className="flex gap-1.5 my-4 flex-wrap">
         {FILTERS.map(f => (
           <button
             key={f}
-            className={`px-4 py-2 rounded-xl text-[11px] font-semibold transition-all duration-200 ${
+            className={`px-3.5 py-1.5 rounded-full text-[11px] font-bold border transition-colors ${
               filter === f
-                ? 'bg-green-dark text-primary-foreground shadow-sm'
-                : 'bg-card/80 backdrop-blur-sm border border-border/60 text-text-muted'
+                ? 'bg-green-dark border-green-dark text-primary-foreground'
+                : 'bg-card border-border text-text-muted'
             }`}
             onClick={() => setFilter(f)}
           >
@@ -38,33 +38,32 @@ export default function LogsScreen() {
         ))}
       </div>
 
-      {/* Log entries as widget cards */}
-      <div className="space-y-2">
+      {/* Table */}
+      <div className="bg-card rounded-lg border border-border overflow-hidden shadow-[0_1px_4px_0_hsl(152_55%_28%/0.05)]">
+        {/* Header */}
+        <div className="flex bg-card-alt border-b border-border">
+          {['Timestamp', 'Temp °C', 'Hum %', 'pH', 'TDS ppm', 'Status'].map(h => (
+            <div key={h} className="flex-1 p-2 text-[9px] font-bold text-text-muted uppercase tracking-wide">
+              {h}
+            </div>
+          ))}
+        </div>
+        {/* Rows */}
         {filtered.map((log, i) => (
-          <WidgetCard key={i} className="!p-3">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] text-text-faint font-medium">{log.timestamp}</span>
+          <div key={i} className={`flex border-b border-green-light/50 ${i % 2 === 1 ? 'bg-[hsl(140,20%,98%)]' : ''}`}>
+            <div className="flex-1 p-2 text-[10px] text-text-muted">{log.timestamp}</div>
+            <div className="flex-1 p-2 text-xs text-text-primary">{log.temp}</div>
+            <div className="flex-1 p-2 text-xs text-text-primary">{log.humidity}</div>
+            <div className="flex-1 p-2 text-xs text-text-primary">{log.ph}</div>
+            <div className="flex-1 p-2 text-xs text-text-primary">{log.tds}</div>
+            <div className="flex-1 p-2 flex items-center">
               <StatusBadge
                 label={log.status}
                 type={log.status === 'Optimal' ? 'success' : log.status === 'Warning' ? 'warning' : 'danger'}
                 size="sm"
               />
             </div>
-            <div className="grid grid-cols-4 gap-2">
-              {[
-                { label: 'Temp', value: `${log.temp}°C`, icon: '🌡️' },
-                { label: 'Humidity', value: `${log.humidity}%`, icon: '💧' },
-                { label: 'pH', value: `${log.ph}`, icon: '🧪' },
-                { label: 'TDS', value: `${log.tds}`, icon: '⚡' },
-              ].map(({ label, value, icon }) => (
-                <div key={label} className="bg-card-alt/50 rounded-lg p-2 text-center border border-border/30">
-                  <span className="text-[10px]">{icon}</span>
-                  <p className="text-[12px] font-bold text-text-primary mt-0.5">{value}</p>
-                  <p className="text-[9px] text-text-faint">{label}</p>
-                </div>
-              ))}
-            </div>
-          </WidgetCard>
+          </div>
         ))}
       </div>
     </div>
