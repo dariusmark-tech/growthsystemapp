@@ -113,11 +113,11 @@ export default function HealthScreen() {
       {/* Network */}
       <AppCard>
         <p className="text-[11px] font-bold text-text-muted uppercase tracking-wider mb-2">🌐 Network</p>
-        {[
-          ['Backend API', 'Connected', 'success' as const],
-          ['Firebase DB', 'Connected', 'success' as const],
-          ['Last Sync', 'just now', 'success' as const],
-        ].map(([l, v, t]) => (
+        {([
+          { l: 'Backend API', v: 'Connected', t: 'success' as const },
+          { l: 'Firebase DB', v: 'Connected', t: 'success' as const },
+          { l: 'Last Sync', v: 'just now', t: 'success' as const },
+        ] as const).map(({ l, v, t }) => (
           <div key={l} className="flex justify-between items-center py-1.5 border-b border-green-light/50 last:border-0">
             <span className="text-xs text-text-muted">{l}</span>
             {l === 'Last Sync'
