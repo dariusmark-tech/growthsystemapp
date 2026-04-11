@@ -12,9 +12,7 @@ export default function HealthScreen() {
           <h1 className="text-[26px] font-extrabold text-text-primary tracking-tight">System Health</h1>
           <p className="text-text-muted text-xs">Hardware connectivity & diagnostics</p>
         </div>
-        <button className="w-8 h-8 rounded-full bg-muted flex items-center justify-center mt-1">
-          <Settings size={16} className="text-text-muted" />
-        </button>
+        <LogoutButton />
       </div>
 
       {/* ESP32 + Sensors Summary */}

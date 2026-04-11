@@ -75,9 +75,7 @@ export default function DashboardScreen() {
               <span className="text-green-dark text-[11px] font-bold">All Optimal</span>
             </div>
           )}
-          <button className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-            <Settings size={16} className="text-text-muted" />
-          </button>
+          <LogoutButton />
         </div>
       </div>
 
