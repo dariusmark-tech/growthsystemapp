@@ -1,6 +1,6 @@
 import { AppCard, StatusBadge, SensorBar } from "@/components/shared/SharedComponents";
 import { SENSORS_HEALTH, SD_CARD } from "@/utils/mockData";
-import { Settings } from "lucide-react";
+import LogoutButton from "@/components/shared/LogoutButton";
 
 const sdPct = Math.round((SD_CARD.used / SD_CARD.total) * 100);
 
