@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { AppCard, CardLabel, StatusBadge, SensorBar, AlertBanner } from "@/components/shared/SharedComponents";
 import { getLatestReadings, MOCK_GROWTH, OPTIMAL_RANGES, getSensorStatus, type SensorReadings } from "@/utils/mockData";
-import { Settings } from "lucide-react";
+import LogoutButton from "@/components/shared/LogoutButton";
 
 function MiniChart({ color }: { color: string }) {
   const bars = [40, 55, 48, 62, 58, 70, 65, 72, 68, 75];
@@ -75,9 +75,7 @@ export default function DashboardScreen() {
               <span className="text-green-dark text-[11px] font-bold">All Optimal</span>
             </div>
           )}
-          <button className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-            <Settings size={16} className="text-text-muted" />
-          </button>
+          <LogoutButton />
         </div>
       </div>
 
