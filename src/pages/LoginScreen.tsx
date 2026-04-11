@@ -54,11 +54,11 @@ export default function LoginScreen() {
   return (
     <div className="min-h-screen bg-background flex flex-col max-w-lg mx-auto">
       {/* Header area */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 pt-16 pb-8">
+      <div className="flex flex-col items-center px-6 pt-16 pb-6">
         <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center mb-4">
           <Leaf className="w-8 h-8 text-primary-foreground" />
         </div>
-        <h1 className="text-2xl font-bold text-foreground mb-1">AquaGrow</h1>
+        <h1 className="text-2xl font-bold text-foreground tracking-widest mb-1">G.R.O.W.T.H.</h1>
         <p className="text-sm text-muted-foreground">
           {isSignUp ? "Create your account" : "Sign in to your farm"}
         </p>
