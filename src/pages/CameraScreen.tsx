@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { AppCard, CardLabel, StatusBadge, SensorBar } from "@/components/shared/SharedComponents";
+import { useState, useRef, useEffect } from "react";
+import { X, Upload } from "lucide-react";
+import { AppCard, CardLabel, StatusBadge } from "@/components/shared/SharedComponents";
 import { MOCK_CLASSIFICATION } from "@/utils/mockData";
 
 function nutStatus(curr: number, tgt: number) {
@@ -9,7 +10,138 @@ function nutStatus(curr: number, tgt: number) {
   return { type: 'success' as const, label: '✓ Optimal' };
 }
 
-function FullDetailsPage({ result, onBack }: { result: typeof MOCK_CLASSIFICATION; onBack: () => void }) {
+// ═══════════════════════════════════════════════════════════════════
+// LIVE CAMERA — full-screen viewfinder with shutter button
+// ═══════════════════════════════════════════════════════════════════
+function LiveCameraScreen({ onCapture, onClose }: { onCapture: (uri: string) => void; onClose: () => void }) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [capturing, setCapturing] = useState(false);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' } },
+          audio: false,
+        });
+        if (!active) {
+          stream.getTracks().forEach(t => t.stop());
+          return;
+        }
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play().catch(() => {});
+        }
+        setReady(true);
+      } catch (e: any) {
+        setError(e?.message || 'Camera access denied');
+      }
+    })();
+    return () => {
+      active = false;
+      streamRef.current?.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    };
+  }, []);
+
+  const handleShutter = () => {
+    if (!videoRef.current || capturing || !ready) return;
+    setCapturing(true);
+    try {
+      const video = videoRef.current;
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('No 2d context');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      onCapture(dataUrl);
+    } catch {
+      setCapturing(false);
+    }
+  };
+
+  if (error) {
+    return (
+      <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center p-6 text-center">
+        <span className="text-5xl mb-4">📷</span>
+        <h2 className="text-primary-foreground text-lg font-bold mb-2">Camera Access Needed</h2>
+        <p className="text-primary-foreground/70 text-sm mb-6">{error}</p>
+        <button onClick={onClose} className="px-5 py-2.5 rounded-full bg-green-dark text-primary-foreground text-sm font-bold">
+          ← Go back
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black flex flex-col">
+      {/* Top bar */}
+      <div className="flex items-center justify-between px-4 pt-12 pb-3">
+        <button
+          onClick={onClose}
+          className="w-11 h-11 rounded-full bg-white/15 flex items-center justify-center"
+        >
+          <X size={22} className="text-white" />
+        </button>
+        <span className="text-white text-[15px] font-extrabold tracking-wide">Capture & Upload</span>
+        <div className="w-11" />
+      </div>
+
+      {/* Viewfinder */}
+      <div className="flex-1 mx-4 mb-4 rounded-3xl overflow-hidden relative bg-black">
+        <video
+          ref={videoRef}
+          playsInline
+          muted
+          autoPlay
+          className="w-full h-full object-cover"
+        />
+        {/* Corner guides */}
+        <div className="absolute top-3 left-3 w-7 h-7 border-t-2 border-l-2 border-white/80 rounded-tl-lg" />
+        <div className="absolute top-3 right-3 w-7 h-7 border-t-2 border-r-2 border-white/80 rounded-tr-lg" />
+        <div className="absolute bottom-3 left-3 w-7 h-7 border-b-2 border-l-2 border-white/80 rounded-bl-lg" />
+        <div className="absolute bottom-3 right-3 w-7 h-7 border-b-2 border-r-2 border-white/80 rounded-br-lg" />
+
+        {!capturing && ready && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <span className="text-white/70 text-xs font-semibold bg-black/30 px-3 py-1 rounded-full">Live View</span>
+          </div>
+        )}
+        {!ready && !error && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-white/70 text-sm">Starting camera…</span>
+          </div>
+        )}
+      </div>
+
+      {/* Shutter */}
+      <div className="pb-10 flex flex-col items-center">
+        <button
+          onClick={handleShutter}
+          disabled={capturing || !ready}
+          className={`w-[78px] h-[78px] rounded-full bg-green-dark flex items-center justify-center ${capturing ? 'opacity-60' : ''}`}
+        >
+          <div className="w-[64px] h-[64px] rounded-full border-[3px] border-white flex items-center justify-center">
+            <div className="w-[52px] h-[52px] rounded-full bg-white" />
+          </div>
+        </button>
+        <span className="text-white/80 text-xs font-semibold mt-3">{capturing ? 'Capturing…' : 'Click'}</span>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// FULL DETAILS PAGE
+// ═══════════════════════════════════════════════════════════════════
+function FullDetailsPage({ result, imageUri, onBack }: { result: typeof MOCK_CLASSIFICATION; imageUri: string | null; onBack: () => void }) {
   const nutColorMap = { amber: 'hsl(var(--chart-amber))', green: 'hsl(var(--green))', blue: 'hsl(var(--chart-blue))' };
 
   return (
@@ -28,12 +160,17 @@ function FullDetailsPage({ result, onBack }: { result: typeof MOCK_CLASSIFICATIO
           Plant Classification<br />& Growth Stage Analysis
         </h1>
 
-        {/* Classification Card */}
         <AppCard className="mb-3">
           <CardLabel>Plant Classification & Growth Stage</CardLabel>
           <div className="rounded-lg overflow-hidden h-[180px] bg-card-alt border border-border mb-3 relative flex items-center justify-center">
-            <span className="text-4xl">🌱</span>
-            <span className="text-text-faint text-xs ml-2">Captured image</span>
+            {imageUri ? (
+              <img src={imageUri} alt="Captured plant" className="w-full h-full object-cover" />
+            ) : (
+              <>
+                <span className="text-4xl">🌱</span>
+                <span className="text-text-faint text-xs ml-2">Captured image</span>
+              </>
+            )}
             <div className="absolute bottom-2.5 left-2.5 bg-green-dark rounded-full px-3 py-1">
               <span className="text-primary-foreground text-xs font-bold">{result.plantName}</span>
             </div>
@@ -72,7 +209,6 @@ function FullDetailsPage({ result, onBack }: { result: typeof MOCK_CLASSIFICATIO
           </div>
         </AppCard>
 
-        {/* Growth Prediction */}
         <AppCard className="mb-3">
           <CardLabel>Growth Prediction Analysis</CardLabel>
           <div className="flex items-start justify-between my-3">
@@ -112,7 +248,6 @@ function FullDetailsPage({ result, onBack }: { result: typeof MOCK_CLASSIFICATIO
           </div>
         </AppCard>
 
-        {/* Nutrient Adjustments */}
         <AppCard>
           <CardLabel className="mb-2">Recommended Nutrient Adjustments</CardLabel>
           {result.nutrients.map(({ label, curr, tgt, color }) => {
@@ -148,23 +283,41 @@ function FullDetailsPage({ result, onBack }: { result: typeof MOCK_CLASSIFICATIO
   );
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// MAIN — Capture & Upload
+// ═══════════════════════════════════════════════════════════════════
 export default function CameraScreen() {
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [classified, setClassified] = useState(false);
   const [classifying, setClassifying] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [showLiveCamera, setShowLiveCamera] = useState(false);
   const [result, setResult] = useState<typeof MOCK_CLASSIFICATION | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const handleUpload = () => {
-    setImageUri('mock');
+  const handleCaptured = (uri: string) => {
+    setImageUri(uri);
     setClassified(false);
     setResult(null);
+    setShowLiveCamera(false);
   };
 
-  const handleCapture = () => {
-    setImageUri('mock');
-    setClassified(false);
-    setResult(null);
+  const handleUploadPicture = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImageUri(reader.result as string);
+      setClassified(false);
+      setResult(null);
+    };
+    reader.readAsDataURL(file);
+    // reset so selecting same file again still triggers change
+    e.target.value = '';
   };
 
   const handleClassify = async () => {
@@ -175,8 +328,12 @@ export default function CameraScreen() {
     setClassifying(false);
   };
 
+  if (showLiveCamera) {
+    return <LiveCameraScreen onCapture={handleCaptured} onClose={() => setShowLiveCamera(false)} />;
+  }
+
   if (showDetails && result) {
-    return <FullDetailsPage result={result} onBack={() => setShowDetails(false)} />;
+    return <FullDetailsPage result={result} imageUri={imageUri} onBack={() => setShowDetails(false)} />;
   }
 
   return (
@@ -185,40 +342,59 @@ export default function CameraScreen() {
         Capture & Upload
       </h1>
 
-      {/* Upload box */}
-      <button
-        className="w-full h-[160px] bg-card-alt rounded-lg border-[1.5px] border-dashed border-border flex items-center justify-center mb-3"
-        onClick={handleUpload}
-      >
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleFileChange}
+      />
+
+      {/* Preview box */}
+      <div className="w-full h-[200px] bg-card-alt rounded-2xl border-[1.5px] border-dashed border-border mb-4 overflow-hidden relative flex items-center justify-center">
         {imageUri ? (
-          <div className="text-center">
-            <span className="text-3xl block mb-1.5">🖼️</span>
-            <span className="text-[13px] font-semibold text-text-muted">Photo ready</span>
-            <p className="text-[10px] text-text-faint mt-1">Tap to choose a different photo</p>
-          </div>
+          <img src={imageUri} alt="Plant preview" className="w-full h-full object-cover" />
         ) : (
-          <div className="text-center">
-            <span className="text-3xl block mb-1.5">📤</span>
-            <span className="text-[13px] font-semibold text-text-muted">Upload photo</span>
-            <p className="text-[10px] text-text-faint mt-1">Tap to select from gallery</p>
-          </div>
+          <>
+            <div className="absolute top-3 left-3 w-6 h-6 border-t-2 border-l-2 border-text-muted rounded-tl-lg" />
+            <div className="absolute top-3 right-3 w-6 h-6 border-t-2 border-r-2 border-text-muted rounded-tr-lg" />
+            <div className="absolute bottom-3 left-3 w-6 h-6 border-b-2 border-l-2 border-text-muted rounded-bl-lg" />
+            <div className="absolute bottom-3 right-3 w-6 h-6 border-b-2 border-r-2 border-text-muted rounded-br-lg" />
+            <div className="text-center">
+              <p className="text-[13px] font-bold text-text-muted">Live View</p>
+              <p className="text-[10px] text-text-faint mt-1">Capture or upload a photo</p>
+            </div>
+          </>
         )}
-      </button>
+      </div>
 
-      {/* Capture button */}
-      <button
-        className="w-full bg-green-dark rounded-md py-3.5 text-center text-primary-foreground font-extrabold text-sm mb-4"
-        onClick={handleCapture}
-      >
-        📸 Capture Image
-      </button>
+      {/* Two buttons */}
+      <div className="flex gap-3 mb-4">
+        <button
+          className="flex-1 bg-green-dark rounded-xl py-4 flex flex-col items-center justify-center gap-1.5"
+          onClick={() => setShowLiveCamera(true)}
+        >
+          <div className="w-7 h-7 rounded-full border-2 border-white flex items-center justify-center">
+            <div className="w-4 h-4 rounded-full bg-white" />
+          </div>
+          <span className="text-primary-foreground font-extrabold text-[13px]">Capture Image</span>
+        </button>
 
-      {/* Photo + Classify */}
-      {imageUri && (
+        <button
+          className="flex-1 bg-card-alt border border-border rounded-xl py-4 flex flex-col items-center justify-center gap-1.5"
+          onClick={handleUploadPicture}
+        >
+          <Upload size={22} className="text-green-dark" strokeWidth={2.5} />
+          <span className="text-text-primary font-extrabold text-[13px]">Upload Picture</span>
+        </button>
+      </div>
+
+      {/* Photo ready + Classify */}
+      {imageUri && !classified && (
         <div className="flex items-center gap-3 mb-4 bg-card-alt rounded-lg border border-border p-3">
-          <div className="flex-1 h-20 bg-background rounded-md border border-border flex items-center justify-center flex-col">
-            <span className="text-2xl">🌿</span>
-            <span className="text-[10px] text-text-muted mt-1">Photo</span>
+          <div className="flex-1 h-20 bg-background rounded-md border border-border overflow-hidden">
+            <img src={imageUri} alt="Selected" className="w-full h-full object-cover" />
           </div>
           <button
             className={`bg-green-dark rounded-md px-5 py-3 ${classifying ? 'opacity-60' : ''}`}
@@ -232,7 +408,7 @@ export default function CameraScreen() {
         </div>
       )}
 
-      {/* Summary card */}
+      {/* Summary */}
       {classified && result && (
         <AppCard>
           <CardLabel className="mb-0">Plant Classification & Growth Stage Analysis</CardLabel>
@@ -243,7 +419,7 @@ export default function CameraScreen() {
               ['Growth stage', result.stage],
               ['Confidence', `${result.confidence[result.stage as keyof typeof result.confidence]}%`],
               ['Harvest est.', result.harvestDate],
-            ].map(([key, val], i) => (
+            ].map(([key, val]) => (
               <div key={key} className="flex justify-between items-center py-[7px] border-b border-border">
                 <span className="text-xs text-text-muted font-semibold">{key}</span>
                 {key === 'Growth stage' ? (
