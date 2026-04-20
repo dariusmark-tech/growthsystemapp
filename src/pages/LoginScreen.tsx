@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { Leaf, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Leaf } from "lucide-react";
+import logo from "@/assets/logo.png";
 
 export default function LoginScreen() {
   const { user, loading, signIn, signUp } = useAuth();
@@ -54,11 +55,8 @@ export default function LoginScreen() {
   return (
     <div className="min-h-screen bg-background flex flex-col max-w-lg mx-auto">
       {/* Header area */}
-      <div className="flex flex-col items-center px-6 pt-16 pb-6">
-        <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center mb-4">
-          <Leaf className="w-8 h-8 text-primary-foreground" />
-        </div>
-        <h1 className="text-2xl font-bold text-foreground tracking-widest mb-1">G.R.O.W.T.H.</h1>
+      <div className="flex flex-col items-center px-6 pt-12 pb-6">
+        <img src={logo} alt="G.R.O.W.T.H. logo" className="w-40 h-40 object-contain mb-2" />
         <p className="text-sm text-muted-foreground">
           {isSignUp ? "Create your account" : "Sign in to your farm"}
         </p>
