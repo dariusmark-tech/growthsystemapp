@@ -56,7 +56,7 @@ export default function LoginScreen() {
     <div className="min-h-screen bg-background flex flex-col max-w-lg mx-auto">
       {/* Header area */}
       <div className="flex flex-col items-center px-6 pt-12 pb-6">
-        <img src={logo} alt="G.R.O.W.T.H. logo" className="w-40 h-40 object-contain mb-2" />
+        <img src={logo} alt="G.R.O.W.T.H. logo" className="w-56 h-56 object-contain mb-2" />
         <p className="text-sm text-muted-foreground">
           {isSignUp ? "Create your account" : "Sign in to your farm"}
         </p>
