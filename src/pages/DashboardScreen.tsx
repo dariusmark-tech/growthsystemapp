@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { AppCard, CardLabel, StatusBadge, SensorBar, AlertBanner } from "@/components/shared/SharedComponents";
 import { getLatestReadings, MOCK_GROWTH, OPTIMAL_RANGES, getSensorStatus, type SensorReadings } from "@/utils/mockData";
 import LogoutButton from "@/components/shared/LogoutButton";
+import logo from "@/assets/logo.png";
 
 function MiniChart({ color }: { color: string }) {
   const bars = [40, 55, 48, 62, 58, 70, 65, 72, 68, 75];
@@ -64,8 +65,8 @@ export default function DashboardScreen() {
     <div className="p-4 pb-10 no-scrollbar overflow-auto">
       {/* Header */}
       <div className="flex justify-between items-end mb-6 mt-2">
-        <div className="flex items-center gap-1">
-          <span className="text-3xl">🌱</span>
+        <div className="flex items-center gap-2">
+          <img src={logo} alt="G.R.O.W.T.H." className="w-9 h-9 object-contain" />
           <h1 className="text-[28px] font-extrabold text-text-primary tracking-tight">Dashboard</h1>
         </div>
         <div className="flex items-center gap-2">
