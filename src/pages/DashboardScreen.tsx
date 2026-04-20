@@ -66,7 +66,7 @@ export default function DashboardScreen() {
       {/* Header */}
       <div className="flex justify-between items-end mb-6 mt-2">
         <div className="flex items-center gap-2">
-          <img src={logo} alt="G.R.O.W.T.H." className="w-9 h-9 object-contain" />
+          <img src={logo} alt="G.R.O.W.T.H." className="w-14 h-14 object-contain" />
           <h1 className="text-[28px] font-extrabold text-text-primary tracking-tight">Dashboard</h1>
         </div>
         <div className="flex items-center gap-2">
