@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      plant_analyses: {
+        Row: {
+          confidence: Json
+          created_at: string
+          days_to_next: number | null
+          harvest_date: string | null
+          id: string
+          image_url: string | null
+          nutrients: Json | null
+          plant_name: string
+          raw_response: Json | null
+          stage: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          confidence?: Json
+          created_at?: string
+          days_to_next?: number | null
+          harvest_date?: string | null
+          id?: string
+          image_url?: string | null
+          nutrients?: Json | null
+          plant_name: string
+          raw_response?: Json | null
+          stage: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          confidence?: Json
+          created_at?: string
+          days_to_next?: number | null
+          harvest_date?: string | null
+          id?: string
+          image_url?: string | null
+          nutrients?: Json | null
+          plant_name?: string
+          raw_response?: Json | null
+          stage?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
