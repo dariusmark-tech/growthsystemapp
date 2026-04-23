@@ -7,17 +7,9 @@ interface LiveCameraScreenProps {
   onCapture: (uri: string) => void;
   onClose: () => void;
   onRetry: () => void;
-  onUseDeviceCamera: () => void;
 }
 
-export function LiveCameraScreen({
-  stream,
-  error,
-  onCapture,
-  onClose,
-  onRetry,
-  onUseDeviceCamera,
-}: LiveCameraScreenProps) {
+export function LiveCameraScreen({ stream, error, onCapture, onClose, onRetry }: LiveCameraScreenProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [capturing, setCapturing] = useState(false);
   const [ready, setReady] = useState(false);
@@ -27,25 +19,48 @@ export function LiveCameraScreen({
     setCapturing(false);
 
     const video = videoRef.current;
-    if (!video || !stream) return;
+    if (!video) return;
 
-    video.srcObject = stream;
+    if (!stream) {
+      video.pause();
+      video.srcObject = null;
+      return;
+    }
 
-    const handleLoadedMetadata = () => {
-      setReady(true);
+    let cancelled = false;
+
+    const markReady = () => {
+      if (!cancelled) setReady(true);
     };
 
-    video.onloadedmetadata = handleLoadedMetadata;
+    video.setAttribute("playsinline", "true");
+    video.muted = true;
+    video.autoplay = true;
+    video.srcObject = stream;
 
-    video.play().then(() => {
-      setReady(true);
-    }).catch(() => {
-      // Some mobile browsers delay autoplay until metadata is ready.
-    });
+    video.onloadedmetadata = markReady;
+    video.onloadeddata = markReady;
+    video.oncanplay = markReady;
+    video.onplaying = markReady;
+
+    const startPlayback = async () => {
+      try {
+        await video.play();
+        markReady();
+      } catch {
+        window.setTimeout(markReady, 300);
+      }
+    };
+
+    void startPlayback();
 
     return () => {
+      cancelled = true;
       if (videoRef.current) {
         videoRef.current.onloadedmetadata = null;
+        videoRef.current.onloadeddata = null;
+        videoRef.current.oncanplay = null;
+        videoRef.current.onplaying = null;
         videoRef.current.pause();
         videoRef.current.srcObject = null;
       }
@@ -87,12 +102,6 @@ export function LiveCameraScreen({
             className="px-5 py-2.5 rounded-full bg-green-dark text-primary-foreground text-sm font-bold"
           >
             Try again
-          </button>
-          <button
-            onClick={onUseDeviceCamera}
-            className="px-5 py-2.5 rounded-full border border-white/20 text-primary-foreground text-sm font-bold"
-          >
-            Use device camera instead
           </button>
           <button
             onClick={onClose}

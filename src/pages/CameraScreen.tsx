@@ -49,7 +49,6 @@ export default function CameraScreen() {
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [result, setResult] = useState<PlantAnalysis | null>(null);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
-  const captureInputRef = useRef<HTMLInputElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const cameraRequestIdRef = useRef(0);
 
@@ -92,11 +91,6 @@ export default function CameraScreen() {
     uploadInputRef.current?.click();
   };
 
-  const handleUseDeviceCamera = () => {
-    handleCloseLiveCamera();
-    captureInputRef.current?.click();
-  };
-
   const handleOpenLiveCamera = async () => {
     const requestId = ++cameraRequestIdRef.current;
 
@@ -105,8 +99,21 @@ export default function CameraScreen() {
     setShowLiveCamera(true);
 
     const attempts: MediaStreamConstraints[] = [
-      { video: { facingMode: { ideal: "environment" } }, audio: false },
-      { video: { facingMode: "user" }, audio: false },
+      {
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: false,
+      },
+      {
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: false,
+      },
       { video: true, audio: false },
     ];
 
@@ -230,7 +237,6 @@ export default function CameraScreen() {
         onCapture={handleCaptured}
         onClose={handleCloseLiveCamera}
         onRetry={() => void handleOpenLiveCamera()}
-        onUseDeviceCamera={handleUseDeviceCamera}
       />
     );
   }
@@ -249,14 +255,6 @@ export default function CameraScreen() {
         ref={uploadInputRef}
         type="file"
         accept="image/*"
-        className="hidden"
-        onChange={handleFileChange}
-      />
-      <input
-        ref={captureInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
         className="hidden"
         onChange={handleFileChange}
       />
