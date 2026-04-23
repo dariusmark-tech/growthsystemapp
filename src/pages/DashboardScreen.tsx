@@ -1,8 +1,33 @@
 import { useState, useEffect, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { AppCard, CardLabel, StatusBadge, SensorBar, AlertBanner } from "@/components/shared/SharedComponents";
-import { getLatestReadings, MOCK_GROWTH, OPTIMAL_RANGES, getSensorStatus, type SensorReadings } from "@/utils/mockData";
+import { getLatestReadings, OPTIMAL_RANGES, getSensorStatus, type SensorReadings } from "@/utils/mockData";
 import LogoutButton from "@/components/shared/LogoutButton";
+import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/logo.png";
+
+interface HistoryItem {
+  id: string;
+  plant_name: string;
+  stage: string;
+  confidence: Record<string, number>;
+  days_to_next: number | null;
+  harvest_date: string | null;
+  image_url: string | null;
+  created_at: string;
+}
+
+function formatRelative(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 7) return `${d}d ago`;
+  return new Date(iso).toLocaleDateString();
+}
 
 function MiniChart({ color }: { color: string }) {
   const bars = [40, 55, 48, 62, 58, 70, 65, 72, 68, 75];
@@ -35,6 +60,8 @@ export default function DashboardScreen() {
   const [alerts, setAlerts] = useState<{ id: string; msg: string; type: 'warning' | 'danger' }[]>([]);
   const [graphOpen, setGraphOpen] = useState(false);
   const [graphTab, setGraphTab] = useState(0);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
 
   const loadData = useCallback(async () => {
     try {
@@ -51,7 +78,20 @@ export default function DashboardScreen() {
     }
   }, []);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  const loadHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    const { data, error } = await supabase
+      .from('plant_analyses')
+      .select('id, plant_name, stage, confidence, days_to_next, harvest_date, image_url, created_at')
+      .order('created_at', { ascending: false })
+      .limit(5);
+    if (!error && data) {
+      setHistory(data as unknown as HistoryItem[]);
+    }
+    setHistoryLoading(false);
+  }, []);
+
+  useEffect(() => { loadData(); loadHistory(); }, [loadData, loadHistory]);
 
   if (!readings) {
     return (
@@ -140,46 +180,56 @@ export default function DashboardScreen() {
         </div>
       </AppCard>
 
-      {/* Growth Stage */}
+      {/* Classification History */}
       <AppCard>
         <div className="flex justify-between items-center mb-3">
-          <CardLabel className="mb-0">🌿 Growth Stage Classification</CardLabel>
-          <StatusBadge label={`${MOCK_GROWTH.confidence.Vegetative}% confidence`} size="sm" />
+          <CardLabel className="mb-0">🌿 Classification History</CardLabel>
+          <Link to="/camera" className="text-green-dark text-[11px] font-bold">+ New</Link>
         </div>
 
-        <div className="flex gap-2 mt-2.5 mb-3">
-          {Object.entries(MOCK_GROWTH.confidence).map(([stage, pct]) => (
-            <div
-              key={stage}
-              className={`flex-1 rounded-md p-3 text-center border ${
-                stage === MOCK_GROWTH.stage
-                  ? 'bg-green-light border-green-dark'
-                  : 'bg-card-alt border-border'
-              }`}
-            >
-              <p className={`text-lg font-extrabold ${stage === MOCK_GROWTH.stage ? 'text-green-dark' : 'text-text-primary'}`}>
-                {pct}%
-              </p>
-              <p className={`text-[10px] mt-0.5 uppercase tracking-wide font-semibold ${stage === MOCK_GROWTH.stage ? 'text-green-dark' : 'text-text-muted'}`}>
-                {stage}
-              </p>
-              <div className="w-full h-[3px] bg-border rounded mt-1.5 overflow-hidden">
-                <div className="h-full bg-green rounded" style={{ width: `${pct}%` }} />
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="flex justify-around pt-2.5 border-t border-border">
-          <div className="text-center">
-            <p className="text-text-faint text-[9px] uppercase tracking-wide">Est. Days to Next Stage</p>
-            <p className="text-text-primary text-xl font-extrabold mt-0.5">{MOCK_GROWTH.daysToNext}</p>
+        {historyLoading ? (
+          <p className="text-text-muted text-sm py-4 text-center">Loading…</p>
+        ) : history.length === 0 ? (
+          <div className="py-6 text-center">
+            <p className="text-text-muted text-sm mb-2">No classifications yet.</p>
+            <Link to="/camera" className="inline-block text-green-dark text-[13px] font-bold underline">
+              Classify your first plant →
+            </Link>
           </div>
-          <div className="text-center">
-            <p className="text-text-faint text-[9px] uppercase tracking-wide">Predicted Harvest</p>
-            <p className="text-green-dark text-sm font-extrabold mt-0.5">{MOCK_GROWTH.harvestDate}</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {history.map((item) => {
+              const conf = item.confidence?.[item.stage] ?? 0;
+              return (
+                <div
+                  key={item.id}
+                  className="flex items-center gap-3 p-2.5 rounded-lg border border-border bg-card-alt"
+                >
+                  {item.image_url ? (
+                    <img
+                      src={item.image_url}
+                      alt={item.plant_name}
+                      className="w-12 h-12 rounded-md object-cover border border-border flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-md bg-green-light border border-border flex items-center justify-center flex-shrink-0">
+                      <span className="text-lg">🌱</span>
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] font-bold text-text-primary truncate">
+                      {item.plant_name}
+                    </p>
+                    <p className="text-[11px] text-text-muted">
+                      {item.stage} · {formatRelative(item.created_at)}
+                    </p>
+                  </div>
+                  <StatusBadge label={`${Math.round(conf)}%`} type="success" size="sm" />
+                </div>
+              );
+            })}
           </div>
-        </div>
+        )}
       </AppCard>
 
       {/* Graph Modal */}
