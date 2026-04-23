@@ -1,94 +1,74 @@
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 
-export function LiveCameraScreen({
-  onCapture,
-  onClose,
-}: {
+interface LiveCameraScreenProps {
+  stream: MediaStream | null;
+  error: string | null;
   onCapture: (uri: string) => void;
   onClose: () => void;
-}) {
+  onRetry: () => void;
+  onUseDeviceCamera: () => void;
+}
+
+export function LiveCameraScreen({
+  stream,
+  error,
+  onCapture,
+  onClose,
+  onRetry,
+  onUseDeviceCamera,
+}: LiveCameraScreenProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [capturing, setCapturing] = useState(false);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    let active = true;
+    setReady(false);
+    setCapturing(false);
 
-    const startStream = async () => {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        setError("Camera API not supported in this browser. Try Chrome or Safari over HTTPS.");
-        return;
-      }
+    const video = videoRef.current;
+    if (!video || !stream) return;
 
-      // Try a sequence of constraints from most-specific to most-permissive
-      const attempts: MediaStreamConstraints[] = [
-        { video: { facingMode: { ideal: "environment" } }, audio: false },
-        { video: { facingMode: "user" }, audio: false },
-        { video: true, audio: false },
-      ];
+    video.srcObject = stream;
 
-      let lastErr: any = null;
-      for (const constraints of attempts) {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia(constraints);
-          if (!active) {
-            stream.getTracks().forEach((t) => t.stop());
-            return;
-          }
-          streamRef.current = stream;
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-            const onLoaded = () => setReady(true);
-            videoRef.current.onloadedmetadata = onLoaded;
-            try {
-              await videoRef.current.play();
-            } catch {
-              // autoplay can fail; metadata listener will still fire
-            }
-            // Fallback in case onloadedmetadata doesn't fire promptly
-            setTimeout(() => active && setReady(true), 800);
-          }
-          return;
-        } catch (e: any) {
-          lastErr = e;
-        }
-      }
-
-      const name = lastErr?.name || "";
-      let msg = lastErr?.message || "Could not start camera";
-      if (name === "NotAllowedError") msg = "Camera permission denied. Please allow camera access in your browser settings.";
-      else if (name === "NotFoundError") msg = "No camera was found on this device.";
-      else if (name === "NotReadableError") msg = "The camera is in use by another app. Close it and try again.";
-      else if (name === "SecurityError" || location.protocol !== "https:") {
-        msg = "Camera requires a secure (HTTPS) connection.";
-      }
-      setError(msg);
+    const handleLoadedMetadata = () => {
+      setReady(true);
     };
 
-    startStream();
+    video.onloadedmetadata = handleLoadedMetadata;
+
+    video.play().then(() => {
+      setReady(true);
+    }).catch(() => {
+      // Some mobile browsers delay autoplay until metadata is ready.
+    });
 
     return () => {
-      active = false;
-      streamRef.current?.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
+      if (videoRef.current) {
+        videoRef.current.onloadedmetadata = null;
+        videoRef.current.pause();
+        videoRef.current.srcObject = null;
+      }
     };
-  }, []);
+  }, [stream]);
 
   const handleShutter = () => {
     if (!videoRef.current || capturing || !ready) return;
+
     setCapturing(true);
     try {
       const video = videoRef.current;
+      const width = video.videoWidth || 1280;
+      const height = video.videoHeight || 720;
       const canvas = document.createElement("canvas");
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      canvas.width = width;
+      canvas.height = height;
+
       const ctx = canvas.getContext("2d");
       if (!ctx) throw new Error("No 2d context");
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+
+      ctx.drawImage(video, 0, 0, width, height);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
       onCapture(dataUrl);
     } catch {
       setCapturing(false);
@@ -100,10 +80,27 @@ export function LiveCameraScreen({
       <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center p-6 text-center">
         <span className="text-5xl mb-4">📷</span>
         <h2 className="text-primary-foreground text-lg font-bold mb-2">Camera Access Needed</h2>
-        <p className="text-primary-foreground/70 text-sm mb-6">{error}</p>
-        <button onClick={onClose} className="px-5 py-2.5 rounded-full bg-green-dark text-primary-foreground text-sm font-bold">
-          ← Go back
-        </button>
+        <p className="text-primary-foreground/70 text-sm mb-6 max-w-[280px]">{error}</p>
+        <div className="flex flex-col gap-3 w-full max-w-[240px]">
+          <button
+            onClick={onRetry}
+            className="px-5 py-2.5 rounded-full bg-green-dark text-primary-foreground text-sm font-bold"
+          >
+            Try again
+          </button>
+          <button
+            onClick={onUseDeviceCamera}
+            className="px-5 py-2.5 rounded-full border border-white/20 text-primary-foreground text-sm font-bold"
+          >
+            Use device camera instead
+          </button>
+          <button
+            onClick={onClose}
+            className="px-5 py-2.5 rounded-full text-primary-foreground/80 text-sm font-bold"
+          >
+            ← Go back
+          </button>
+        </div>
       </div>
     );
   }
