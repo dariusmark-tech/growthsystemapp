@@ -1,11 +1,42 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Upload } from "lucide-react";
 import { AppCard, CardLabel, StatusBadge } from "@/components/shared/SharedComponents";
+import { LiveCameraScreen } from "@/components/camera/LiveCameraScreen";
 import { FullDetailsPage } from "@/components/camera/FullDetailsPage";
 import { PlantAnalysis } from "@/components/camera/types";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+
+function mapCameraError(error: unknown) {
+  const err = error as { name?: string; message?: string } | null;
+
+  if (!navigator.mediaDevices?.getUserMedia) {
+    return "This browser does not support live camera access.";
+  }
+
+  if (err?.name === "NotAllowedError") {
+    return "Camera permission was denied. Please allow access and try again.";
+  }
+
+  if (err?.name === "NotFoundError") {
+    return "No camera was found on this device.";
+  }
+
+  if (err?.name === "NotReadableError") {
+    return "The camera is busy or blocked by another app/browser tab. Close it and try again.";
+  }
+
+  if (err?.name === "OverconstrainedError") {
+    return "This camera mode is not available on your device.";
+  }
+
+  if (location.protocol !== "https:") {
+    return "Live camera needs a secure HTTPS connection.";
+  }
+
+  return err?.message || "Could not start the camera.";
+}
 
 export default function CameraScreen() {
   const { user } = useAuth();
@@ -13,36 +44,110 @@ export default function CameraScreen() {
   const [classified, setClassified] = useState(false);
   const [classifying, setClassifying] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [showLiveCamera, setShowLiveCamera] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [result, setResult] = useState<PlantAnalysis | null>(null);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const captureInputRef = useRef<HTMLInputElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const cameraRequestIdRef = useRef(0);
+
+  const stopCameraStream = () => {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    setCameraStream(null);
+  };
+
+  useEffect(() => {
+    return () => {
+      cameraRequestIdRef.current += 1;
+      stopCameraStream();
+    };
+  }, []);
+
+  const resetClassification = () => {
+    setClassified(false);
+    setResult(null);
+    setShowDetails(false);
+  };
+
+  const handleCaptured = (uri: string) => {
+    setImageUri(uri);
+    resetClassification();
+    cameraRequestIdRef.current += 1;
+    stopCameraStream();
+    setCameraError(null);
+    setShowLiveCamera(false);
+  };
+
+  const handleCloseLiveCamera = () => {
+    cameraRequestIdRef.current += 1;
+    stopCameraStream();
+    setCameraError(null);
+    setShowLiveCamera(false);
+  };
 
   const handleUploadPicture = () => {
     uploadInputRef.current?.click();
   };
 
-  const handleCapturePicture = () => {
+  const handleUseDeviceCamera = () => {
+    handleCloseLiveCamera();
     captureInputRef.current?.click();
   };
 
-  const handleSelectedFile = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      setImageUri(reader.result as string);
-      setClassified(false);
-      setResult(null);
-      setShowDetails(false);
-    };
-    reader.onerror = () => {
-      toast.error("Could not read the selected image");
-    };
-    reader.readAsDataURL(file);
+  const handleOpenLiveCamera = async () => {
+    const requestId = ++cameraRequestIdRef.current;
+
+    stopCameraStream();
+    setCameraError(null);
+    setShowLiveCamera(true);
+
+    const attempts: MediaStreamConstraints[] = [
+      { video: { facingMode: { ideal: "environment" } }, audio: false },
+      { video: { facingMode: "user" }, audio: false },
+      { video: true, audio: false },
+    ];
+
+    let lastError: unknown = null;
+
+    for (const constraints of attempts) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+
+        if (requestId !== cameraRequestIdRef.current) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+
+        streamRef.current = stream;
+        setCameraStream(stream);
+        setCameraError(null);
+        return;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    if (requestId !== cameraRequestIdRef.current) return;
+    setCameraError(mapCameraError(lastError));
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    handleSelectedFile(file);
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImageUri(reader.result as string);
+      resetClassification();
+    };
+    reader.onerror = () => {
+      toast.error("Could not read the selected image");
+    };
+
+    reader.readAsDataURL(file);
     e.target.value = "";
   };
 
@@ -117,6 +222,19 @@ export default function CameraScreen() {
     }
   };
 
+  if (showLiveCamera) {
+    return (
+      <LiveCameraScreen
+        stream={cameraStream}
+        error={cameraError}
+        onCapture={handleCaptured}
+        onClose={handleCloseLiveCamera}
+        onRetry={() => void handleOpenLiveCamera()}
+        onUseDeviceCamera={handleUseDeviceCamera}
+      />
+    );
+  }
+
   if (showDetails && result) {
     return <FullDetailsPage result={result} imageUri={imageUri} onBack={() => setShowDetails(false)} />;
   }
@@ -163,7 +281,7 @@ export default function CameraScreen() {
       <div className="flex gap-3 mb-4">
         <button
           className="flex-1 bg-green-dark rounded-xl py-4 flex flex-col items-center justify-center gap-1.5"
-          onClick={handleCapturePicture}
+          onClick={() => void handleOpenLiveCamera()}
         >
           <div className="w-7 h-7 rounded-full border-2 border-white flex items-center justify-center">
             <div className="w-4 h-4 rounded-full bg-white" />
@@ -213,7 +331,9 @@ export default function CameraScreen() {
                 {key === "Growth stage" ? (
                   <StatusBadge label={val as string} type="success" size="sm" />
                 ) : (
-                  <span className={`text-[13px] font-bold ${key === "Harvest est." ? "text-green-dark" : "text-text-primary"}`}>{val}</span>
+                  <span className={`text-[13px] font-bold ${key === "Harvest est." ? "text-green-dark" : "text-text-primary"}`}>
+                    {val}
+                  </span>
                 )}
               </div>
             ))}
