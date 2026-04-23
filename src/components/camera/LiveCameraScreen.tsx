@@ -16,26 +16,60 @@ export function LiveCameraScreen({
 
   useEffect(() => {
     let active = true;
-    (async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" } },
-          audio: false,
-        });
-        if (!active) {
-          stream.getTracks().forEach((t) => t.stop());
-          return;
-        }
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play().catch(() => {});
-        }
-        setReady(true);
-      } catch (e: any) {
-        setError(e?.message || "Camera access denied");
+
+    const startStream = async () => {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setError("Camera API not supported in this browser. Try Chrome or Safari over HTTPS.");
+        return;
       }
-    })();
+
+      // Try a sequence of constraints from most-specific to most-permissive
+      const attempts: MediaStreamConstraints[] = [
+        { video: { facingMode: { ideal: "environment" } }, audio: false },
+        { video: { facingMode: "user" }, audio: false },
+        { video: true, audio: false },
+      ];
+
+      let lastErr: any = null;
+      for (const constraints of attempts) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia(constraints);
+          if (!active) {
+            stream.getTracks().forEach((t) => t.stop());
+            return;
+          }
+          streamRef.current = stream;
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            const onLoaded = () => setReady(true);
+            videoRef.current.onloadedmetadata = onLoaded;
+            try {
+              await videoRef.current.play();
+            } catch {
+              // autoplay can fail; metadata listener will still fire
+            }
+            // Fallback in case onloadedmetadata doesn't fire promptly
+            setTimeout(() => active && setReady(true), 800);
+          }
+          return;
+        } catch (e: any) {
+          lastErr = e;
+        }
+      }
+
+      const name = lastErr?.name || "";
+      let msg = lastErr?.message || "Could not start camera";
+      if (name === "NotAllowedError") msg = "Camera permission denied. Please allow camera access in your browser settings.";
+      else if (name === "NotFoundError") msg = "No camera was found on this device.";
+      else if (name === "NotReadableError") msg = "The camera is in use by another app. Close it and try again.";
+      else if (name === "SecurityError" || location.protocol !== "https:") {
+        msg = "Camera requires a secure (HTTPS) connection.";
+      }
+      setError(msg);
+    };
+
+    startStream();
+
     return () => {
       active = false;
       streamRef.current?.getTracks().forEach((t) => t.stop());
