@@ -60,6 +60,8 @@ export default function DashboardScreen() {
   const [alerts, setAlerts] = useState<{ id: string; msg: string; type: 'warning' | 'danger' }[]>([]);
   const [graphOpen, setGraphOpen] = useState(false);
   const [graphTab, setGraphTab] = useState(0);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
 
   const loadData = useCallback(async () => {
     try {
@@ -76,7 +78,20 @@ export default function DashboardScreen() {
     }
   }, []);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  const loadHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    const { data, error } = await supabase
+      .from('plant_analyses')
+      .select('id, plant_name, stage, confidence, days_to_next, harvest_date, image_url, created_at')
+      .order('created_at', { ascending: false })
+      .limit(5);
+    if (!error && data) {
+      setHistory(data as unknown as HistoryItem[]);
+    }
+    setHistoryLoading(false);
+  }, []);
+
+  useEffect(() => { loadData(); loadHistory(); }, [loadData, loadHistory]);
 
   if (!readings) {
     return (
