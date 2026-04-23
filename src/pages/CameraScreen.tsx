@@ -1,7 +1,6 @@
-import { useState, useRef } from "react";
+import { useRef, useState } from "react";
 import { Upload } from "lucide-react";
 import { AppCard, CardLabel, StatusBadge } from "@/components/shared/SharedComponents";
-import { LiveCameraScreen } from "@/components/camera/LiveCameraScreen";
 import { FullDetailsPage } from "@/components/camera/FullDetailsPage";
 import { PlantAnalysis } from "@/components/camera/types";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,31 +13,36 @@ export default function CameraScreen() {
   const [classified, setClassified] = useState(false);
   const [classifying, setClassifying] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
-  const [showLiveCamera, setShowLiveCamera] = useState(false);
   const [result, setResult] = useState<PlantAnalysis | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  const handleCaptured = (uri: string) => {
-    setImageUri(uri);
-    setClassified(false);
-    setResult(null);
-    setShowLiveCamera(false);
-  };
+  const uploadInputRef = useRef<HTMLInputElement | null>(null);
+  const captureInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleUploadPicture = () => {
-    fileInputRef.current?.click();
+    uploadInputRef.current?.click();
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleCapturePicture = () => {
+    captureInputRef.current?.click();
+  };
+
+  const handleSelectedFile = (file: File) => {
     const reader = new FileReader();
     reader.onload = () => {
       setImageUri(reader.result as string);
       setClassified(false);
       setResult(null);
+      setShowDetails(false);
+    };
+    reader.onerror = () => {
+      toast.error("Could not read the selected image");
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    handleSelectedFile(file);
     e.target.value = "";
   };
 
@@ -74,7 +78,6 @@ export default function CameraScreen() {
       });
 
       if (error) {
-        // FunctionsHttpError surfaces here — try to read context
         const ctx: any = (error as any).context;
         if (ctx?.status === 429) toast.error("Too many requests — please wait a moment.");
         else if (ctx?.status === 402) toast.error("AI credits exhausted. Add funds in Settings.");
@@ -91,7 +94,6 @@ export default function CameraScreen() {
       setResult(analysis);
       setClassified(true);
 
-      // Persist asynchronously — don't block UX
       (async () => {
         const imageUrl = await uploadPhoto(imageUri);
         const { error: dbErr } = await supabase.from("plant_analyses").insert({
@@ -115,10 +117,6 @@ export default function CameraScreen() {
     }
   };
 
-  if (showLiveCamera) {
-    return <LiveCameraScreen onCapture={handleCaptured} onClose={() => setShowLiveCamera(false)} />;
-  }
-
   if (showDetails && result) {
     return <FullDetailsPage result={result} imageUri={imageUri} onBack={() => setShowDetails(false)} />;
   }
@@ -130,9 +128,17 @@ export default function CameraScreen() {
       </h1>
 
       <input
-        ref={fileInputRef}
+        ref={uploadInputRef}
         type="file"
         accept="image/*"
+        className="hidden"
+        onChange={handleFileChange}
+      />
+      <input
+        ref={captureInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
         className="hidden"
         onChange={handleFileChange}
       />
@@ -157,7 +163,7 @@ export default function CameraScreen() {
       <div className="flex gap-3 mb-4">
         <button
           className="flex-1 bg-green-dark rounded-xl py-4 flex flex-col items-center justify-center gap-1.5"
-          onClick={() => setShowLiveCamera(true)}
+          onClick={handleCapturePicture}
         >
           <div className="w-7 h-7 rounded-full border-2 border-white flex items-center justify-center">
             <div className="w-4 h-4 rounded-full bg-white" />
