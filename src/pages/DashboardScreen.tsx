@@ -1,8 +1,33 @@
 import { useState, useEffect, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { AppCard, CardLabel, StatusBadge, SensorBar, AlertBanner } from "@/components/shared/SharedComponents";
-import { getLatestReadings, MOCK_GROWTH, OPTIMAL_RANGES, getSensorStatus, type SensorReadings } from "@/utils/mockData";
+import { getLatestReadings, OPTIMAL_RANGES, getSensorStatus, type SensorReadings } from "@/utils/mockData";
 import LogoutButton from "@/components/shared/LogoutButton";
+import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/logo.png";
+
+interface HistoryItem {
+  id: string;
+  plant_name: string;
+  stage: string;
+  confidence: Record<string, number>;
+  days_to_next: number | null;
+  harvest_date: string | null;
+  image_url: string | null;
+  created_at: string;
+}
+
+function formatRelative(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 7) return `${d}d ago`;
+  return new Date(iso).toLocaleDateString();
+}
 
 function MiniChart({ color }: { color: string }) {
   const bars = [40, 55, 48, 62, 58, 70, 65, 72, 68, 75];
