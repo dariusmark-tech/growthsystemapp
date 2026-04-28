@@ -7,6 +7,11 @@ export interface NutrientRec {
   color: "amber" | "green" | "blue";
 }
 
+export interface RoboflowPrediction {
+  class: string;
+  confidence: number; // 0..1
+}
+
 export interface PlantAnalysis {
   plantName: string;
   stage: StageName;
@@ -15,6 +20,11 @@ export interface PlantAnalysis {
   harvestDate: string;
   nutrients: NutrientRec[];
   notes?: string;
+  roboflow?: {
+    topClass: string;
+    topConfidence: number; // 0..100
+    predictions: RoboflowPrediction[];
+  };
 }
 
 export function nutStatus(curr: number, tgt: number) {
