@@ -97,8 +97,8 @@ export default function DashboardScreen() {
           <h1 className="text-[28px] font-extrabold text-text-primary tracking-tight">Dashboard</h1>
         </div>
         <div className="flex items-center gap-2">
-          {alerts.length === 0 && (
-            <div className="flex items-center gap-1.5 bg-green-light border border-border-high px-3 py-1.5 rounded-full">
+          {alerts.length === 0 && bannerVisible && (
+            <div className="flex items-center gap-1.5 bg-green-light border border-border-high px-3 py-1.5 rounded-full animate-fade-in">
               <div className="w-[7px] h-[7px] rounded-full bg-green animate-pulse" />
               <span className="text-green-dark text-[11px] font-bold">All Optimal</span>
             </div>
@@ -107,8 +107,12 @@ export default function DashboardScreen() {
         </div>
       </div>
 
-      {/* Alerts */}
-      {alerts.map(a => <AlertBanner key={a.id} message={a.msg} type={a.type} />)}
+      {/* Alerts — flash once per login then auto-dismiss */}
+      {bannerVisible && alerts.map(a => (
+        <div key={a.id} className="animate-fade-in">
+          <AlertBanner message={a.msg} type={a.type} />
+        </div>
+      ))}
 
       {/* Temperature + Humidity Card */}
       <AppCard className="mb-3">
