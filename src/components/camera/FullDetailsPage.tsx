@@ -1,5 +1,5 @@
-import { AppCard, CardLabel, StatusBadge } from "@/components/shared/SharedComponents";
-import { PlantAnalysis, StageName, nutStatus } from "./types";
+import { AppCard, CardLabel } from "@/components/shared/SharedComponents";
+import { PlantAnalysis, StageName } from "@/components/camera/types";
 
 const STAGES: StageName[] = ["Seedling", "Vegetative", "Fruiting", "Harvest"];
 
