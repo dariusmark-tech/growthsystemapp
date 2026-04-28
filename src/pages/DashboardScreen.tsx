@@ -1,10 +1,15 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { AppCard, CardLabel, StatusBadge, SensorBar, AlertBanner } from "@/components/shared/SharedComponents";
-import { getLatestReadings, OPTIMAL_RANGES, getSensorStatus, type SensorReadings } from "@/utils/mockData";
+import { SensorLineChart } from "@/components/shared/SensorLineChart";
+import { getLatestReadings, OPTIMAL_RANGES, getSensorStatus, MOCK_MONITORING, type SensorReadings } from "@/utils/mockData";
+import { computeAlerts } from "@/hooks/useSensorAlerts";
 import LogoutButton from "@/components/shared/LogoutButton";
 import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/logo.png";
+
+const BANNER_TIMEOUT_MS = 5000;
+const BANNER_FLASH_KEY = "growth_banner_flashed";
 
 interface HistoryItem {
   id: string;
@@ -20,7 +25,7 @@ interface HistoryItem {
 function formatRelative(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
   const m = Math.floor(diff / 60000);
-  if (m < 1) return "just now";
+  if (m < 1) return "Just now";
   if (m < 60) return `${m}m ago`;
   const h = Math.floor(m / 60);
   if (h < 24) return `${h}h ago`;
@@ -29,35 +34,10 @@ function formatRelative(iso: string) {
   return new Date(iso).toLocaleDateString();
 }
 
-function MiniChart({ color }: { color: string }) {
-  const bars = [40, 55, 48, 62, 58, 70, 65, 72, 68, 75];
-  return (
-    <div className="h-[90px] flex flex-col justify-end">
-      <div className="flex items-end gap-[3px] h-[72px]">
-        {bars.map((h, i) => (
-          <div
-            key={i}
-            className="flex-1 rounded-[3px] min-h-1"
-            style={{
-              height: h,
-              backgroundColor: color,
-              opacity: 0.3 + (i / bars.length) * 0.7,
-            }}
-          />
-        ))}
-      </div>
-      <div className="flex justify-between mt-1">
-        <span className="text-[9px] text-text-faint">6h ago</span>
-        <span className="text-[9px] text-text-faint">3h ago</span>
-        <span className="text-[9px] text-text-faint">Now</span>
-      </div>
-    </div>
-  );
-}
-
 export default function DashboardScreen() {
   const [readings, setReadings] = useState<SensorReadings | null>(null);
   const [alerts, setAlerts] = useState<{ id: string; msg: string; type: 'warning' | 'danger' }[]>([]);
+  const [bannerVisible, setBannerVisible] = useState(false);
   const [graphOpen, setGraphOpen] = useState(false);
   const [graphTab, setGraphTab] = useState(0);
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -67,12 +47,7 @@ export default function DashboardScreen() {
     try {
       const data = await getLatestReadings();
       setReadings(data);
-      const a: { id: string; msg: string; type: 'warning' | 'danger' }[] = [];
-      if (data.temp.avg < OPTIMAL_RANGES.temp.min || data.temp.avg > OPTIMAL_RANGES.temp.max)
-        a.push({ id: 'temp', msg: '⚠️ Temperature out of range: ' + data.temp.avg + '°C', type: 'warning' });
-      if (data.ph < OPTIMAL_RANGES.ph.min || data.ph > OPTIMAL_RANGES.ph.max)
-        a.push({ id: 'ph', msg: '⚠️ pH out of range: ' + data.ph, type: 'warning' });
-      setAlerts(a);
+      setAlerts(computeAlerts(data));
     } catch {
       setAlerts([{ id: 'err', msg: '🔴 Could not reach backend. Showing cached data.', type: 'danger' }]);
     }
@@ -93,6 +68,18 @@ export default function DashboardScreen() {
 
   useEffect(() => { loadData(); loadHistory(); }, [loadData, loadHistory]);
 
+  // Flash status banner once per login session, then auto-hide.
+  useEffect(() => {
+    if (!readings) return;
+    if (sessionStorage.getItem(BANNER_FLASH_KEY) === '1') return;
+    setBannerVisible(true);
+    const t = setTimeout(() => {
+      setBannerVisible(false);
+      sessionStorage.setItem(BANNER_FLASH_KEY, '1');
+    }, BANNER_TIMEOUT_MS);
+    return () => clearTimeout(t);
+  }, [readings]);
+
   if (!readings) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -102,7 +89,7 @@ export default function DashboardScreen() {
   }
 
   return (
-    <div className="p-4 pb-10 no-scrollbar overflow-auto">
+    <div className="p-4 pb-10 no-scrollbar overflow-auto animate-fade-in">
       {/* Header */}
       <div className="flex justify-between items-end mb-6 mt-2">
         <div className="flex items-center gap-2">
@@ -110,8 +97,8 @@ export default function DashboardScreen() {
           <h1 className="text-[28px] font-extrabold text-text-primary tracking-tight">Dashboard</h1>
         </div>
         <div className="flex items-center gap-2">
-          {alerts.length === 0 && (
-            <div className="flex items-center gap-1.5 bg-green-light border border-border-high px-3 py-1.5 rounded-full">
+          {alerts.length === 0 && bannerVisible && (
+            <div className="flex items-center gap-1.5 bg-green-light border border-border-high px-3 py-1.5 rounded-full animate-fade-in">
               <div className="w-[7px] h-[7px] rounded-full bg-green animate-pulse" />
               <span className="text-green-dark text-[11px] font-bold">All Optimal</span>
             </div>
@@ -120,8 +107,12 @@ export default function DashboardScreen() {
         </div>
       </div>
 
-      {/* Alerts */}
-      {alerts.map(a => <AlertBanner key={a.id} message={a.msg} type={a.type} />)}
+      {/* Alerts — flash once per login then auto-dismiss */}
+      {bannerVisible && alerts.map(a => (
+        <div key={a.id} className="animate-fade-in">
+          <AlertBanner message={a.msg} type={a.type} />
+        </div>
+      ))}
 
       {/* Temperature + Humidity Card */}
       <AppCard className="mb-3">
@@ -276,7 +267,12 @@ export default function DashboardScreen() {
                     <span className="text-[11px] font-extrabold text-text-muted tracking-[1.5px]">TEMPERATURE</span>
                     <StatusBadge label={`${readings.temp.avg}°C avg`} type="success" size="sm" />
                   </div>
-                  <MiniChart color="hsl(152,55%,28%)" />
+                  <SensorLineChart
+                    data={MOCK_MONITORING.tempHistory}
+                    color="hsl(152,55%,28%)"
+                    yLabel="Temperature"
+                    unit="°C"
+                  />
                   <div className="flex gap-2 mt-3.5">
                     {[
                       { label: 'Sensor 1', val: readings.temp.s1 },
@@ -300,7 +296,12 @@ export default function DashboardScreen() {
                     <span className="text-[11px] font-extrabold text-text-muted tracking-[1.5px]">HUMIDITY</span>
                     <StatusBadge label={`${readings.humidity}%`} type="success" size="sm" />
                   </div>
-                  <MiniChart color="hsl(152,60%,42%)" />
+                  <SensorLineChart
+                    data={MOCK_MONITORING.humidityHistory}
+                    color="hsl(152,60%,42%)"
+                    yLabel="Humidity"
+                    unit="%"
+                  />
                   <div className="flex gap-2 mt-3 mb-3">
                     {[
                       { label: 'Current', val: `${readings.humidity}%` },

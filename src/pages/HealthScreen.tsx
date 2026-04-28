@@ -114,7 +114,7 @@ export default function HealthScreen() {
         {([
           { l: 'Backend API', v: 'Connected', t: 'success' as const },
           { l: 'Firebase DB', v: 'Connected', t: 'success' as const },
-          { l: 'Last Sync', v: 'just now', t: 'success' as const },
+          { l: 'Last Sync', v: 'Just now', t: 'success' as const },
         ] as const).map(({ l, v, t }) => (
           <div key={l} className="flex justify-between items-center py-1.5 border-b border-green-light/50 last:border-0">
             <span className="text-xs text-text-muted">{l}</span>

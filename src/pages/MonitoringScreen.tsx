@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { AppCard, StatusBadge, SensorBar } from "@/components/shared/SharedComponents";
+import { SensorLineChart } from "@/components/shared/SensorLineChart";
 import { MOCK_READINGS, MOCK_MONITORING, OPTIMAL_RANGES, getSensorStatus } from "@/utils/mockData";
-import { Settings } from "lucide-react";
+import { Settings, CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
 
 const TIME_RANGES = ['1h', '6h', '24h', '7d'];
 
@@ -17,7 +18,7 @@ export default function MonitoringScreen() {
   };
 
   return (
-    <div className="p-4 pb-10 no-scrollbar overflow-auto">
+    <div className="p-4 pb-10 no-scrollbar overflow-auto animate-fade-in">
       {/* Header */}
       <div className="flex justify-between items-start mb-1 mt-2">
         <div>
@@ -61,15 +62,24 @@ export default function MonitoringScreen() {
           { label: 'Sensor 1', val: readings.temp.s1 },
           { label: 'Sensor 2', val: readings.temp.s2 },
           { label: 'Sensor 3', val: readings.temp.s3 },
-        ].map(({ label, val }) => (
-          <div key={label} className="flex justify-between items-center py-2.5 border-b border-border/50 last:border-0">
-            <span className="text-[13px] text-text-muted">{label}</span>
-            <div className="flex items-center gap-2">
-              <span className="text-[13px] font-bold text-text-primary">{val} °C</span>
-              <div className="w-2 h-2 rounded-full bg-green" />
+        ].map(({ label, val }) => {
+          const status = getSensorStatus('temp', val);
+          const Icon = status === 'success' ? CheckCircle2 : status === 'warning' ? AlertTriangle : XCircle;
+          const color = status === 'success'
+            ? 'hsl(var(--green))'
+            : status === 'warning'
+            ? 'hsl(var(--chart-amber))'
+            : 'hsl(var(--danger))';
+          return (
+            <div key={label} className="flex justify-between items-center py-2.5 border-b border-border/50 last:border-0 transition-colors hover:bg-card-alt/40">
+              <span className="text-[13px] text-text-muted">{label}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-[13px] font-bold text-text-primary">{val} °C</span>
+                <Icon size={14} style={{ color }} strokeWidth={2.5} />
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         <div className="flex justify-between items-center pt-3 mt-1 border-t border-border">
           <span className="text-[13px] font-bold text-green">Average</span>
@@ -92,9 +102,15 @@ export default function MonitoringScreen() {
           </div>
         </div>
 
-        {/* Chart placeholder */}
-        <div className="mt-4 h-20 bg-card-alt rounded-lg border border-border flex items-center justify-center">
-          <span className="text-text-faint text-xs">📈 Temp chart renders here (Recharts)</span>
+        {/* Temperature trend */}
+        <div className="mt-4">
+          <SensorLineChart
+            data={MOCK_MONITORING.tempHistory}
+            color="hsl(152,55%,28%)"
+            yLabel="Temperature"
+            unit="°C"
+          />
+          <p className="text-[10px] text-text-faint text-center -mt-1">Temperature vs. Time</p>
         </div>
       </AppCard>
 
@@ -115,8 +131,14 @@ export default function MonitoringScreen() {
         <SensorBar value={readings.humidity} max={100} className="mt-2 mb-1" />
         <p className="text-[10px] text-text-faint">Filling: {readings.humidity}% — Target: 55–75%</p>
 
-        <div className="mt-4 h-20 bg-card-alt rounded-lg border border-border flex items-center justify-center">
-          <span className="text-text-faint text-xs">📈 Humidity chart renders here (Recharts)</span>
+        <div className="mt-4">
+          <SensorLineChart
+            data={MOCK_MONITORING.humidityHistory}
+            color="hsl(152,60%,42%)"
+            yLabel="Humidity"
+            unit="%"
+          />
+          <p className="text-[10px] text-text-faint text-center -mt-1">Humidity vs. Time</p>
         </div>
       </AppCard>
 

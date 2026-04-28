@@ -1,5 +1,5 @@
-import { AppCard, CardLabel, StatusBadge } from "@/components/shared/SharedComponents";
-import { PlantAnalysis, StageName, nutStatus } from "./types";
+import { AppCard, CardLabel } from "@/components/shared/SharedComponents";
+import { PlantAnalysis, StageName } from "@/components/camera/types";
 
 const STAGES: StageName[] = ["Seedling", "Vegetative", "Fruiting", "Harvest"];
 
@@ -12,12 +12,6 @@ export function FullDetailsPage({
   imageUri: string | null;
   onBack: () => void;
 }) {
-  const nutColorMap = {
-    amber: "hsl(var(--chart-amber))",
-    green: "hsl(var(--green))",
-    blue: "hsl(var(--chart-blue))",
-  };
-
   return (
     <div className="min-h-screen bg-background">
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-background">
@@ -128,27 +122,6 @@ export function FullDetailsPage({
           </div>
         </AppCard>
 
-        <AppCard>
-          <CardLabel className="mb-2">Recommended Nutrient Adjustments</CardLabel>
-          {result.nutrients.map(({ label, curr, tgt, color }) => {
-            const st = nutStatus(curr, tgt);
-            return (
-              <div key={label} className="mb-3">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-[13px] font-semibold text-text-primary">{label}</span>
-                  <StatusBadge label={st.label} type={st.type} size="sm" />
-                </div>
-                <div className="flex justify-end gap-4 mb-1.5">
-                  <span className="text-[11px] text-text-muted">Current: <strong className="text-text-primary">{curr} ppm</strong></span>
-                  <span className="text-[11px] text-text-muted">Target: <strong className="text-text-primary">{tgt} ppm</strong></span>
-                </div>
-                <div className="h-[5px] bg-green-light rounded-full overflow-hidden">
-                  <div className="h-full rounded-full" style={{ width: `${Math.min(100, (curr / 400) * 100)}%`, backgroundColor: nutColorMap[color] }} />
-                </div>
-              </div>
-            );
-          })}
-        </AppCard>
       </div>
     </div>
   );
