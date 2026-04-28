@@ -102,9 +102,15 @@ export default function MonitoringScreen() {
           </div>
         </div>
 
-        {/* Chart placeholder */}
-        <div className="mt-4 h-20 bg-card-alt rounded-lg border border-border flex items-center justify-center">
-          <span className="text-text-faint text-xs">📈 Temp chart renders here (Recharts)</span>
+        {/* Temperature trend */}
+        <div className="mt-4">
+          <SensorLineChart
+            data={MOCK_MONITORING.tempHistory}
+            color="hsl(152,55%,28%)"
+            yLabel="Temperature"
+            unit="°C"
+          />
+          <p className="text-[10px] text-text-faint text-center -mt-1">Temperature vs. Time</p>
         </div>
       </AppCard>
 
@@ -125,8 +131,14 @@ export default function MonitoringScreen() {
         <SensorBar value={readings.humidity} max={100} className="mt-2 mb-1" />
         <p className="text-[10px] text-text-faint">Filling: {readings.humidity}% — Target: 55–75%</p>
 
-        <div className="mt-4 h-20 bg-card-alt rounded-lg border border-border flex items-center justify-center">
-          <span className="text-text-faint text-xs">📈 Humidity chart renders here (Recharts)</span>
+        <div className="mt-4">
+          <SensorLineChart
+            data={MOCK_MONITORING.humidityHistory}
+            color="hsl(152,60%,42%)"
+            yLabel="Humidity"
+            unit="%"
+          />
+          <p className="text-[10px] text-text-faint text-center -mt-1">Humidity vs. Time</p>
         </div>
       </AppCard>
 
