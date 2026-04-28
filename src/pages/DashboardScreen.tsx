@@ -34,35 +34,10 @@ function formatRelative(iso: string) {
   return new Date(iso).toLocaleDateString();
 }
 
-function MiniChart({ color }: { color: string }) {
-  const bars = [40, 55, 48, 62, 58, 70, 65, 72, 68, 75];
-  return (
-    <div className="h-[90px] flex flex-col justify-end">
-      <div className="flex items-end gap-[3px] h-[72px]">
-        {bars.map((h, i) => (
-          <div
-            key={i}
-            className="flex-1 rounded-[3px] min-h-1"
-            style={{
-              height: h,
-              backgroundColor: color,
-              opacity: 0.3 + (i / bars.length) * 0.7,
-            }}
-          />
-        ))}
-      </div>
-      <div className="flex justify-between mt-1">
-        <span className="text-[9px] text-text-faint">6h ago</span>
-        <span className="text-[9px] text-text-faint">3h ago</span>
-        <span className="text-[9px] text-text-faint">Now</span>
-      </div>
-    </div>
-  );
-}
-
 export default function DashboardScreen() {
   const [readings, setReadings] = useState<SensorReadings | null>(null);
   const [alerts, setAlerts] = useState<{ id: string; msg: string; type: 'warning' | 'danger' }[]>([]);
+  const [bannerVisible, setBannerVisible] = useState(false);
   const [graphOpen, setGraphOpen] = useState(false);
   const [graphTab, setGraphTab] = useState(0);
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -72,12 +47,7 @@ export default function DashboardScreen() {
     try {
       const data = await getLatestReadings();
       setReadings(data);
-      const a: { id: string; msg: string; type: 'warning' | 'danger' }[] = [];
-      if (data.temp.avg < OPTIMAL_RANGES.temp.min || data.temp.avg > OPTIMAL_RANGES.temp.max)
-        a.push({ id: 'temp', msg: '⚠️ Temperature out of range: ' + data.temp.avg + '°C', type: 'warning' });
-      if (data.ph < OPTIMAL_RANGES.ph.min || data.ph > OPTIMAL_RANGES.ph.max)
-        a.push({ id: 'ph', msg: '⚠️ pH out of range: ' + data.ph, type: 'warning' });
-      setAlerts(a);
+      setAlerts(computeAlerts(data));
     } catch {
       setAlerts([{ id: 'err', msg: '🔴 Could not reach backend. Showing cached data.', type: 'danger' }]);
     }
@@ -97,6 +67,18 @@ export default function DashboardScreen() {
   }, []);
 
   useEffect(() => { loadData(); loadHistory(); }, [loadData, loadHistory]);
+
+  // Flash status banner once per login session, then auto-hide.
+  useEffect(() => {
+    if (!readings) return;
+    if (sessionStorage.getItem(BANNER_FLASH_KEY) === '1') return;
+    setBannerVisible(true);
+    const t = setTimeout(() => {
+      setBannerVisible(false);
+      sessionStorage.setItem(BANNER_FLASH_KEY, '1');
+    }, BANNER_TIMEOUT_MS);
+    return () => clearTimeout(t);
+  }, [readings]);
 
   if (!readings) {
     return (
