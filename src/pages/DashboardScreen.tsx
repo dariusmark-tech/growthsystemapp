@@ -89,7 +89,7 @@ export default function DashboardScreen() {
   }
 
   return (
-    <div className="p-4 pb-10 no-scrollbar overflow-auto">
+    <div className="p-4 pb-10 no-scrollbar overflow-auto animate-fade-in">
       {/* Header */}
       <div className="flex justify-between items-end mb-6 mt-2">
         <div className="flex items-center gap-2">
