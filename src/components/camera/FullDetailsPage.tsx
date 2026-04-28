@@ -84,6 +84,37 @@ export function FullDetailsPage({
           )}
         </AppCard>
 
+        {result.roboflow && (
+          <AppCard className="mb-3">
+            <CardLabel>Custom Model Classification (Roboflow)</CardLabel>
+            <div className="flex justify-between items-center py-1.5 border-b border-border">
+              <span className="text-xs text-text-muted">Top prediction</span>
+              <span className="text-[13px] font-bold text-green-dark">{result.roboflow.topClass}</span>
+            </div>
+            <div className="flex justify-between items-center py-1.5 border-b border-border">
+              <span className="text-xs text-text-muted">Confidence</span>
+              <span className="text-[13px] font-bold text-text-primary">{result.roboflow.topConfidence}%</span>
+            </div>
+            <div className="mt-3">
+              <p className="text-[11px] font-bold text-text-muted mb-2">All predictions</p>
+              {result.roboflow.predictions.map((p) => (
+                <div key={p.class} className="flex items-center gap-2 mb-1.5">
+                  <span className="text-[11px] text-text-muted flex-1 truncate">{p.class}</span>
+                  <div className="w-24 h-[5px] bg-border rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-green-dark"
+                      style={{ width: `${Math.round(p.confidence * 100)}%` }}
+                    />
+                  </div>
+                  <span className="text-[11px] font-bold text-text-primary w-[34px] text-right">
+                    {Math.round(p.confidence * 100)}%
+                  </span>
+                </div>
+              ))}
+            </div>
+          </AppCard>
+        )}
+
         <AppCard className="mb-3">
           <CardLabel>Growth Prediction Analysis</CardLabel>
           <div className="flex items-start justify-between my-3">
