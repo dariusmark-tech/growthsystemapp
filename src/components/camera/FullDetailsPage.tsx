@@ -12,12 +12,6 @@ export function FullDetailsPage({
   imageUri: string | null;
   onBack: () => void;
 }) {
-  const nutColorMap = {
-    amber: "hsl(var(--chart-amber))",
-    green: "hsl(var(--green))",
-    blue: "hsl(var(--chart-blue))",
-  };
-
   return (
     <div className="min-h-screen bg-background">
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-background">
