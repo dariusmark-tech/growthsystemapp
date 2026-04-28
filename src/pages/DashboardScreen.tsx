@@ -267,7 +267,12 @@ export default function DashboardScreen() {
                     <span className="text-[11px] font-extrabold text-text-muted tracking-[1.5px]">TEMPERATURE</span>
                     <StatusBadge label={`${readings.temp.avg}°C avg`} type="success" size="sm" />
                   </div>
-                  <MiniChart color="hsl(152,55%,28%)" />
+                  <SensorLineChart
+                    data={MOCK_MONITORING.tempHistory}
+                    color="hsl(152,55%,28%)"
+                    yLabel="Temperature"
+                    unit="°C"
+                  />
                   <div className="flex gap-2 mt-3.5">
                     {[
                       { label: 'Sensor 1', val: readings.temp.s1 },
@@ -291,7 +296,12 @@ export default function DashboardScreen() {
                     <span className="text-[11px] font-extrabold text-text-muted tracking-[1.5px]">HUMIDITY</span>
                     <StatusBadge label={`${readings.humidity}%`} type="success" size="sm" />
                   </div>
-                  <MiniChart color="hsl(152,60%,42%)" />
+                  <SensorLineChart
+                    data={MOCK_MONITORING.humidityHistory}
+                    color="hsl(152,60%,42%)"
+                    yLabel="Humidity"
+                    unit="%"
+                  />
                   <div className="flex gap-2 mt-3 mb-3">
                     {[
                       { label: 'Current', val: `${readings.humidity}%` },
