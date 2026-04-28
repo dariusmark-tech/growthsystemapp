@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { AppCard, StatusBadge, SensorBar } from "@/components/shared/SharedComponents";
+import { SensorLineChart } from "@/components/shared/SensorLineChart";
 import { MOCK_READINGS, MOCK_MONITORING, OPTIMAL_RANGES, getSensorStatus } from "@/utils/mockData";
-import { Settings } from "lucide-react";
+import { Settings, CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
 
 const TIME_RANGES = ['1h', '6h', '24h', '7d'];
 
