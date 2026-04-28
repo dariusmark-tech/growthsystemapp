@@ -1,10 +1,15 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { AppCard, CardLabel, StatusBadge, SensorBar, AlertBanner } from "@/components/shared/SharedComponents";
-import { getLatestReadings, OPTIMAL_RANGES, getSensorStatus, type SensorReadings } from "@/utils/mockData";
+import { SensorLineChart } from "@/components/shared/SensorLineChart";
+import { getLatestReadings, OPTIMAL_RANGES, getSensorStatus, MOCK_MONITORING, type SensorReadings } from "@/utils/mockData";
+import { computeAlerts } from "@/hooks/useSensorAlerts";
 import LogoutButton from "@/components/shared/LogoutButton";
 import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/logo.png";
+
+const BANNER_TIMEOUT_MS = 5000;
+const BANNER_FLASH_KEY = "growth_banner_flashed";
 
 interface HistoryItem {
   id: string;
