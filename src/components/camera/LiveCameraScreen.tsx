@@ -125,7 +125,7 @@ export function LiveCameraScreen({ stream, error, onCapture, onClose, onRetry }:
       </div>
 
       <div className="flex-1 mx-4 mb-4 rounded-3xl overflow-hidden relative bg-black">
-        <video ref={videoRef} playsInline muted autoPlay className="w-full h-full object-cover" />
+        <video ref={videoRef} playsInline muted autoPlay className="w-full h-full object-contain bg-black" />
         <div className="absolute top-3 left-3 w-7 h-7 border-t-2 border-l-2 border-white/80 rounded-tl-lg" />
         <div className="absolute top-3 right-3 w-7 h-7 border-t-2 border-r-2 border-white/80 rounded-tr-lg" />
         <div className="absolute bottom-3 left-3 w-7 h-7 border-b-2 border-l-2 border-white/80 rounded-bl-lg" />

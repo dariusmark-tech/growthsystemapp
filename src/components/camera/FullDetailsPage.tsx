@@ -32,7 +32,7 @@ export function FullDetailsPage({
           <CardLabel>Plant Classification & Growth Stage</CardLabel>
           <div className="rounded-lg overflow-hidden h-[180px] bg-card-alt border border-border mb-3 relative flex items-center justify-center">
             {imageUri ? (
-              <img src={imageUri} alt="Captured plant" className="w-full h-full object-cover" />
+              <img src={imageUri} alt="Captured plant" className="w-full h-full object-contain bg-black" />
             ) : (
               <>
                 <span className="text-4xl">🌱</span>
@@ -58,25 +58,22 @@ export function FullDetailsPage({
           </div>
 
           <div className="mt-4">
-            <p className="text-[11px] font-bold text-text-muted mb-2">AI Confidence</p>
-            {STAGES.map((stage) => {
-              const pct = result.confidence?.[stage] ?? 0;
+            <p className="text-[11px] font-bold text-text-muted mb-2">Evaluation Metrics</p>
+            {(() => {
+              const pct = Math.round(result.confidence?.[result.stage] ?? 0);
               return (
-                <div key={stage} className="flex items-center gap-2 mb-1.5">
-                  <span className="text-[11px] text-text-muted w-20">{stage}</span>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-[11px] text-text-muted w-28">Prediction Accuracy</span>
                   <div className="flex-1 h-[5px] bg-border rounded-full overflow-hidden">
                     <div
                       className="h-full rounded-full"
-                      style={{
-                        width: `${pct}%`,
-                        backgroundColor: stage === result.stage ? "hsl(var(--green-dark))" : "hsl(var(--border))",
-                      }}
+                      style={{ width: `${pct}%`, backgroundColor: "hsl(var(--green-dark))" }}
                     />
                   </div>
-                  <span className="text-[11px] font-bold text-text-primary w-[30px] text-right">{Math.round(pct)}%</span>
+                  <span className="text-[11px] font-bold text-text-primary w-[34px] text-right">{pct}%</span>
                 </div>
               );
-            })}
+            })()}
           </div>
 
           {result.notes && (
