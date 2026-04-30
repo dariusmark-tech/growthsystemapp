@@ -321,6 +321,7 @@ export default function CameraScreen() {
             {[
               ["Plant", result.plantName],
               ["Growth stage", result.stage],
+              ["Confidence", `${Math.round(result.confidence?.[result.stage] ?? 0)}%`],
               ["Harvest est.", result.harvestDate],
             ].map(([key, val]) => (
               <div key={key} className="flex justify-between items-center py-[7px] border-b border-border">

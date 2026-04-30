@@ -1,6 +1,3 @@
-import { useState } from "react";
-import { HelpCircle } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AppCard, CardLabel } from "@/components/shared/SharedComponents";
 import { PlantAnalysis, StageName } from "@/components/camera/types";
 
@@ -15,18 +12,6 @@ export function FullDetailsPage({
   imageUri: string | null;
   onBack: () => void;
 }) {
-  const [zoomed, setZoomed] = useState(false);
-
-  // Merge: prefer Roboflow plant name when available; combine confidence signals.
-  const rf = result.roboflow;
-  const geminiStageConf = Math.round(result.confidence?.[result.stage] ?? 0);
-  const rfConf = rf?.topConfidence ?? null;
-  // Combined "best result" plant name (Roboflow wins for species, Gemini provides stage)
-  const bestPlantName = rf?.topClass ?? result.plantName;
-  // Combined confidence: average of both signals when both exist
-  const combinedConfidence =
-    rfConf !== null ? Math.round((rfConf + geminiStageConf) / 2) : geminiStageConf;
-
   return (
     <div className="min-h-screen bg-background">
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-background">
@@ -45,38 +30,24 @@ export function FullDetailsPage({
 
         <AppCard className="mb-3">
           <CardLabel>Plant Classification & Growth Stage</CardLabel>
-          <div
-            className="rounded-lg overflow-auto bg-card-alt border border-border mb-3 relative flex items-center justify-center cursor-zoom-in"
-            style={{ maxHeight: zoomed ? 480 : 280 }}
-            onClick={() => imageUri && setZoomed((z) => !z)}
-          >
+          <div className="rounded-lg overflow-hidden h-[180px] bg-card-alt border border-border mb-3 relative flex items-center justify-center">
             {imageUri ? (
-              <img
-                src={imageUri}
-                alt="Captured plant"
-                className={`w-full ${zoomed ? "h-auto object-contain" : "h-[260px] object-contain"} bg-black/5`}
-                style={zoomed ? { maxWidth: "none" } : undefined}
-              />
+              <img src={imageUri} alt="Captured plant" className="w-full h-full object-cover" />
             ) : (
-              <div className="h-[180px] flex items-center justify-center">
+              <>
                 <span className="text-4xl">🌱</span>
                 <span className="text-text-faint text-xs ml-2">Captured image</span>
-              </div>
+              </>
             )}
-            <div className="absolute bottom-2.5 left-2.5 bg-green-dark rounded-full px-3 py-1 pointer-events-none">
-              <span className="text-primary-foreground text-xs font-bold">{bestPlantName}</span>
+            <div className="absolute bottom-2.5 left-2.5 bg-green-dark rounded-full px-3 py-1">
+              <span className="text-primary-foreground text-xs font-bold">{result.plantName}</span>
             </div>
           </div>
-          {imageUri && (
-            <p className="text-[10px] text-text-faint italic mb-2 -mt-1">
-              Tap image to {zoomed ? "fit" : "zoom & pan"}.
-            </p>
-          )}
 
           <div className="mt-1">
             <p className="text-xs font-bold text-text-muted mb-2">Details:</p>
             {[
-              ["Plant classification", bestPlantName],
+              ["Plant classification", result.plantName],
               ["Growth stage", result.stage],
             ].map(([key, val]) => (
               <div key={key} className="flex justify-between items-center py-1.5 border-b border-border">
@@ -86,58 +57,8 @@ export function FullDetailsPage({
             ))}
           </div>
 
-          {result.notes && (
-            <p className="mt-3 text-[11px] text-text-muted italic leading-snug">{result.notes}</p>
-          )}
-        </AppCard>
-
-        {/* Combined Evaluation Metrics (Roboflow + Gemini best-of) */}
-        <AppCard className="mb-3">
-          <div className="flex items-center justify-between mb-2">
-            <CardLabel className="mb-0">Evaluation Metrics</CardLabel>
-            <TooltipProvider delayDuration={100}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    aria-label="What do these metrics mean?"
-                    className="text-text-muted hover:text-green-dark transition-colors"
-                  >
-                    <HelpCircle size={16} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="left" className="max-w-[260px] text-xs leading-snug">
-                  In machine learning, <b>confidence</b> is the model's estimated probability
-                  that a prediction is correct (0–100%). Higher values mean the model is more
-                  certain — but it does not guarantee accuracy. We combine results from a
-                  custom-trained classifier (Roboflow) and a vision LLM (Gemini) to give a more
-                  reliable best-of estimate.
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-
-          <div className="flex justify-between items-center py-1.5 border-b border-border">
-            <span className="text-xs text-text-muted">Best plant prediction</span>
-            <span className="text-[13px] font-bold text-green-dark">{bestPlantName}</span>
-          </div>
-          <div className="flex justify-between items-center py-1.5 border-b border-border">
-            <span className="text-xs text-text-muted">Combined confidence</span>
-            <span className="text-[13px] font-bold text-text-primary">{combinedConfidence}%</span>
-          </div>
-          {rf && (
-            <div className="flex justify-between items-center py-1.5 border-b border-border">
-              <span className="text-xs text-text-muted">Roboflow (species)</span>
-              <span className="text-[13px] font-bold text-text-primary">{rf.topConfidence}%</span>
-            </div>
-          )}
-          <div className="flex justify-between items-center py-1.5 border-b border-border">
-            <span className="text-xs text-text-muted">Gemini (stage: {result.stage})</span>
-            <span className="text-[13px] font-bold text-text-primary">{geminiStageConf}%</span>
-          </div>
-
           <div className="mt-4">
-            <p className="text-[11px] font-bold text-text-muted mb-2">Growth stage probabilities</p>
+            <p className="text-[11px] font-bold text-text-muted mb-2">AI Confidence</p>
             {STAGES.map((stage) => {
               const pct = result.confidence?.[stage] ?? 0;
               return (
@@ -145,7 +66,7 @@ export function FullDetailsPage({
                   <span className="text-[11px] text-text-muted w-20">{stage}</span>
                   <div className="flex-1 h-[5px] bg-border rounded-full overflow-hidden">
                     <div
-                      className="h-full rounded-full transition-all duration-500"
+                      className="h-full rounded-full"
                       style={{
                         width: `${pct}%`,
                         backgroundColor: stage === result.stage ? "hsl(var(--green-dark))" : "hsl(var(--border))",
@@ -158,15 +79,30 @@ export function FullDetailsPage({
             })}
           </div>
 
-          {rf && rf.predictions.length > 0 && (
-            <div className="mt-4">
-              <p className="text-[11px] font-bold text-text-muted mb-2">Species predictions (Roboflow)</p>
-              {rf.predictions.map((p) => (
+          {result.notes && (
+            <p className="mt-3 text-[11px] text-text-muted italic leading-snug">{result.notes}</p>
+          )}
+        </AppCard>
+
+        {result.roboflow && (
+          <AppCard className="mb-3">
+            <CardLabel>Custom Model Classification (Roboflow)</CardLabel>
+            <div className="flex justify-between items-center py-1.5 border-b border-border">
+              <span className="text-xs text-text-muted">Top prediction</span>
+              <span className="text-[13px] font-bold text-green-dark">{result.roboflow.topClass}</span>
+            </div>
+            <div className="flex justify-between items-center py-1.5 border-b border-border">
+              <span className="text-xs text-text-muted">Confidence</span>
+              <span className="text-[13px] font-bold text-text-primary">{result.roboflow.topConfidence}%</span>
+            </div>
+            <div className="mt-3">
+              <p className="text-[11px] font-bold text-text-muted mb-2">All predictions</p>
+              {result.roboflow.predictions.map((p) => (
                 <div key={p.class} className="flex items-center gap-2 mb-1.5">
                   <span className="text-[11px] text-text-muted flex-1 truncate">{p.class}</span>
                   <div className="w-24 h-[5px] bg-border rounded-full overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-green-dark transition-all duration-500"
+                      className="h-full rounded-full bg-green-dark"
                       style={{ width: `${Math.round(p.confidence * 100)}%` }}
                     />
                   </div>
@@ -176,9 +112,8 @@ export function FullDetailsPage({
                 </div>
               ))}
             </div>
-          )}
-        </AppCard>
-
+          </AppCard>
+        )}
 
         <AppCard className="mb-3">
           <CardLabel>Growth Prediction Analysis</CardLabel>
