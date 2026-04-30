@@ -1,3 +1,6 @@
+import { useState } from "react";
+import { HelpCircle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AppCard, CardLabel } from "@/components/shared/SharedComponents";
 import { PlantAnalysis, StageName } from "@/components/camera/types";
 
