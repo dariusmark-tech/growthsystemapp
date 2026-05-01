@@ -45,8 +45,11 @@ export default function CameraScreen() {
   const [classifying, setClassifying] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [showLiveCamera, setShowLiveCamera] = useState(false);
+  const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
+  const [permissionDenied, setPermissionDenied] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [requestingPermission, setRequestingPermission] = useState(false);
   const [result, setResult] = useState<PlantAnalysis | null>(null);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -85,18 +88,51 @@ export default function CameraScreen() {
     stopCameraStream();
     setCameraError(null);
     setShowLiveCamera(false);
+    setShowPermissionPrompt(false);
   };
 
   const handleUploadPicture = () => {
     uploadInputRef.current?.click();
   };
 
+  // Step 1: Show our custom "Allow Camera" prompt. The browser's native
+  // permission dialog only appears once we actually call getUserMedia,
+  // which happens in handleGrantPermission below.
   const handleOpenLiveCamera = async () => {
-    const requestId = ++cameraRequestIdRef.current;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraError("This browser does not support live camera access.");
+      setShowLiveCamera(true);
+      return;
+    }
 
+    try {
+      const status = await navigator.permissions?.query?.({
+        name: "camera" as PermissionName,
+      });
+      if (status?.state === "granted") {
+        void handleGrantPermission();
+        return;
+      }
+      if (status?.state === "denied") {
+        setPermissionDenied(true);
+        setShowPermissionPrompt(true);
+        return;
+      }
+    } catch {
+      // Permissions API not supported in this browser — fall through
+    }
+
+    setPermissionDenied(false);
+    setShowPermissionPrompt(true);
+  };
+
+  // Step 2: User clicked "Allow Camera" — this user gesture is what
+  // makes the browser show its native permission dialog.
+  const handleGrantPermission = async () => {
+    const requestId = ++cameraRequestIdRef.current;
+    setRequestingPermission(true);
     stopCameraStream();
     setCameraError(null);
-    setShowLiveCamera(true);
 
     const attempts: MediaStreamConstraints[] = [
       {
@@ -124,21 +160,40 @@ export default function CameraScreen() {
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
 
         if (requestId !== cameraRequestIdRef.current) {
-          stream.getTracks().forEach((track) => track.stop());
+          stream.getTracks().forEach((t) => t.stop());
+          setRequestingPermission(false);
           return;
         }
 
         streamRef.current = stream;
         setCameraStream(stream);
         setCameraError(null);
+        setShowPermissionPrompt(false);
+        setShowLiveCamera(true);
+        setRequestingPermission(false);
         return;
       } catch (error) {
         lastError = error;
+        const name = (error as { name?: string })?.name;
+        if (name === "NotAllowedError" || name === "SecurityError") break;
       }
     }
 
-    if (requestId !== cameraRequestIdRef.current) return;
-    setCameraError(mapCameraError(lastError));
+    if (requestId !== cameraRequestIdRef.current) {
+      setRequestingPermission(false);
+      return;
+    }
+
+    const errName = (lastError as { name?: string })?.name;
+    if (errName === "NotAllowedError" || errName === "SecurityError") {
+      setPermissionDenied(true);
+      setShowPermissionPrompt(true);
+    } else {
+      setCameraError(mapCameraError(lastError));
+      setShowPermissionPrompt(false);
+      setShowLiveCamera(true);
+    }
+    setRequestingPermission(false);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -229,6 +284,53 @@ export default function CameraScreen() {
     }
   };
 
+  if (showPermissionPrompt) {
+    return (
+      <div className="fixed inset-0 z-50 bg-background flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-20 h-20 rounded-full bg-green-light flex items-center justify-center mb-5">
+          <div className="w-10 h-10 rounded-full border-[3px] border-green-dark flex items-center justify-center">
+            <div className="w-4 h-4 rounded-full bg-green-dark" />
+          </div>
+        </div>
+        <h2 className="text-text-primary text-[18px] font-extrabold mb-2">
+          {permissionDenied ? "Camera Access Blocked" : "Allow Camera Access"}
+        </h2>
+        <p className="text-text-muted text-sm mb-6 max-w-[300px] leading-snug">
+          {permissionDenied
+            ? "Camera permission was previously denied. To use the live camera, please enable it in your browser settings (tap the lock icon in the address bar) and reload the page."
+            : "This app needs your permission to use the camera so you can capture plant photos in real time."}
+        </p>
+        <div className="flex flex-col gap-3 w-full max-w-[260px]">
+          {!permissionDenied && (
+            <button
+              onClick={() => void handleGrantPermission()}
+              disabled={requestingPermission}
+              className={`px-5 py-3 rounded-full bg-green-dark text-primary-foreground text-sm font-bold ${
+                requestingPermission ? "opacity-60" : ""
+              }`}
+            >
+              {requestingPermission ? "Requesting…" : "Allow Camera"}
+            </button>
+          )}
+          {permissionDenied && (
+            <button
+              onClick={() => window.location.reload()}
+              className="px-5 py-3 rounded-full bg-green-dark text-primary-foreground text-sm font-bold"
+            >
+              Reload page
+            </button>
+          )}
+          <button
+            onClick={handleCloseLiveCamera}
+            className="px-5 py-3 rounded-full text-text-muted text-sm font-bold"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (showLiveCamera) {
     return (
       <LiveCameraScreen
@@ -236,7 +338,7 @@ export default function CameraScreen() {
         error={cameraError}
         onCapture={handleCaptured}
         onClose={handleCloseLiveCamera}
-        onRetry={() => void handleOpenLiveCamera()}
+        onRetry={() => void handleGrantPermission()}
       />
     );
   }
