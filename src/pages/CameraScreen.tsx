@@ -45,8 +45,11 @@ export default function CameraScreen() {
   const [classifying, setClassifying] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [showLiveCamera, setShowLiveCamera] = useState(false);
+  const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
+  const [permissionDenied, setPermissionDenied] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [requestingPermission, setRequestingPermission] = useState(false);
   const [result, setResult] = useState<PlantAnalysis | null>(null);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -85,18 +88,50 @@ export default function CameraScreen() {
     stopCameraStream();
     setCameraError(null);
     setShowLiveCamera(false);
+    setShowPermissionPrompt(false);
   };
 
   const handleUploadPicture = () => {
     uploadInputRef.current?.click();
   };
 
+  // Step 1: Show our custom "Allow Camera" prompt. The browser's native
+  // permission dialog only appears once we actually call getUserMedia,
+  // which happens in handleGrantPermission below.
   const handleOpenLiveCamera = async () => {
-    const requestId = ++cameraRequestIdRef.current;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraError("This browser does not support live camera access.");
+      setShowLiveCamera(true);
+      return;
+    }
 
+    try {
+      // @ts-expect-error - "camera" name is widely supported but not in TS lib
+      const status = await navigator.permissions?.query?.({ name: "camera" });
+      if (status?.state === "granted") {
+        void handleGrantPermission();
+        return;
+      }
+      if (status?.state === "denied") {
+        setPermissionDenied(true);
+        setShowPermissionPrompt(true);
+        return;
+      }
+    } catch {
+      // Permissions API not supported in this browser — fall through
+    }
+
+    setPermissionDenied(false);
+    setShowPermissionPrompt(true);
+  };
+
+  // Step 2: User clicked "Allow Camera" — this user gesture is what
+  // makes the browser show its native permission dialog.
+  const handleGrantPermission = async () => {
+    const requestId = ++cameraRequestIdRef.current;
+    setRequestingPermission(true);
     stopCameraStream();
     setCameraError(null);
-    setShowLiveCamera(true);
 
     const attempts: MediaStreamConstraints[] = [
       {
@@ -124,21 +159,40 @@ export default function CameraScreen() {
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
 
         if (requestId !== cameraRequestIdRef.current) {
-          stream.getTracks().forEach((track) => track.stop());
+          stream.getTracks().forEach((t) => t.stop());
+          setRequestingPermission(false);
           return;
         }
 
         streamRef.current = stream;
         setCameraStream(stream);
         setCameraError(null);
+        setShowPermissionPrompt(false);
+        setShowLiveCamera(true);
+        setRequestingPermission(false);
         return;
       } catch (error) {
         lastError = error;
+        const name = (error as { name?: string })?.name;
+        if (name === "NotAllowedError" || name === "SecurityError") break;
       }
     }
 
-    if (requestId !== cameraRequestIdRef.current) return;
-    setCameraError(mapCameraError(lastError));
+    if (requestId !== cameraRequestIdRef.current) {
+      setRequestingPermission(false);
+      return;
+    }
+
+    const errName = (lastError as { name?: string })?.name;
+    if (errName === "NotAllowedError" || errName === "SecurityError") {
+      setPermissionDenied(true);
+      setShowPermissionPrompt(true);
+    } else {
+      setCameraError(mapCameraError(lastError));
+      setShowPermissionPrompt(false);
+      setShowLiveCamera(true);
+    }
+    setRequestingPermission(false);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
