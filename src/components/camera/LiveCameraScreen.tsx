@@ -9,11 +9,21 @@ interface LiveCameraScreenProps {
   onRetry: () => void;
 }
 
+/**
+ * Web port of the Android CameraViewModel pattern:
+ *  - getPreview()       -> bind MediaStream to <video>
+ *  - getImageCapture()  -> offscreen <canvas> as the capture surface
+ *  - captureImage()     -> draw current video frame to canvas, emit data URL
+ *  - onImageSaved/onError callbacks -> resolve/reject in handleShutter
+ */
 export function LiveCameraScreen({ stream, error, onCapture, onClose, onRetry }: LiveCameraScreenProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  // ImageCapture surface (mirrors imageCapture field in CameraViewModel)
+  const captureCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [capturing, setCapturing] = useState(false);
   const [ready, setReady] = useState(false);
 
+  // Bind preview (mirrors setCamera + getPreview in the Kotlin VM)
   useEffect(() => {
     setReady(false);
     setCapturing(false);
@@ -28,9 +38,19 @@ export function LiveCameraScreen({ stream, error, onCapture, onClose, onRetry }:
     }
 
     let cancelled = false;
+    let pollId: number | null = null;
 
-    const markReady = () => {
-      if (!cancelled) setReady(true);
+    // Poll until the video actually has frame dimensions — this is the web
+    // equivalent of waiting for CameraX's preview to start streaming.
+    const checkReady = () => {
+      if (cancelled) return;
+      if (video.videoWidth > 0 && video.videoHeight > 0 && video.readyState >= 2) {
+        setReady(true);
+        if (pollId !== null) {
+          window.clearInterval(pollId);
+          pollId = null;
+        }
+      }
     };
 
     video.setAttribute("playsinline", "true");
@@ -38,54 +58,88 @@ export function LiveCameraScreen({ stream, error, onCapture, onClose, onRetry }:
     video.autoplay = true;
     video.srcObject = stream;
 
-    video.onloadedmetadata = markReady;
-    video.onloadeddata = markReady;
-    video.oncanplay = markReady;
-    video.onplaying = markReady;
+    video.onloadedmetadata = checkReady;
+    video.onloadeddata = checkReady;
+    video.oncanplay = checkReady;
+    video.onplaying = checkReady;
 
     const startPlayback = async () => {
       try {
         await video.play();
-        markReady();
-      } catch {
-        window.setTimeout(markReady, 300);
+      } catch (err) {
+        console.warn("LiveCameraScreen: video.play() failed, will keep polling", err);
       }
+      checkReady();
+      pollId = window.setInterval(checkReady, 150);
     };
 
     void startPlayback();
 
     return () => {
       cancelled = true;
-      if (videoRef.current) {
-        videoRef.current.onloadedmetadata = null;
-        videoRef.current.onloadeddata = null;
-        videoRef.current.oncanplay = null;
-        videoRef.current.onplaying = null;
-        videoRef.current.pause();
-        videoRef.current.srcObject = null;
+      if (pollId !== null) window.clearInterval(pollId);
+      const v = videoRef.current;
+      if (v) {
+        v.onloadedmetadata = null;
+        v.onloadeddata = null;
+        v.oncanplay = null;
+        v.onplaying = null;
+        v.pause();
+        v.srcObject = null;
       }
     };
   }, [stream]);
 
-  const handleShutter = () => {
-    if (!videoRef.current || capturing || !ready) return;
+  /**
+   * captureImage(context, onImageCaptured) — ported from Kotlin.
+   * Grabs the current frame from <video> and emits a JPEG data URL.
+   */
+  const handleShutter = async () => {
+    const video = videoRef.current;
+    if (!video || capturing) return;
 
     setCapturing(true);
+
+    // Wait briefly if the frame isn't ready yet — equivalent to the Kotlin
+    // "ImageCapture is null" guard but with a short retry instead of failing.
+    const waitForFrame = async () => {
+      for (let i = 0; i < 20; i++) {
+        if (video.videoWidth > 0 && video.videoHeight > 0) return true;
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      return false;
+    };
+
     try {
-      const video = videoRef.current;
-      const width = video.videoWidth || 1280;
-      const height = video.videoHeight || 720;
-      const canvas = document.createElement("canvas");
+      const haveFrame = await waitForFrame();
+      if (!haveFrame) {
+        console.error("LiveCameraScreen: no video frame available to capture");
+        setCapturing(false);
+        return;
+      }
+
+      const width = video.videoWidth;
+      const height = video.videoHeight;
+
+      // Reuse a single canvas instance, like the single ImageCapture field.
+      const canvas = captureCanvasRef.current ?? document.createElement("canvas");
+      captureCanvasRef.current = canvas;
       canvas.width = width;
       canvas.height = height;
 
       const ctx = canvas.getContext("2d");
       if (!ctx) throw new Error("No 2d context");
 
+      // Draw the live frame — this is the takePicture() call.
       ctx.drawImage(video, 0, 0, width, height);
-      const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+
+      // onImageSaved callback equivalent
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+      console.log("LiveCameraScreen: image captured", `${width}x${height}`);
       onCapture(dataUrl);
-    } catch {
+    } catch (err) {
+      // onError callback equivalent
+      console.error("LiveCameraScreen: image capture failed", err);
       setCapturing(false);
     }
   };
@@ -144,15 +198,17 @@ export function LiveCameraScreen({ stream, error, onCapture, onClose, onRetry }:
 
       <div className="pb-10 flex flex-col items-center">
         <button
-          onClick={handleShutter}
-          disabled={capturing || !ready}
+          onClick={() => void handleShutter()}
+          disabled={capturing}
           className={`w-[78px] h-[78px] rounded-full bg-green-dark flex items-center justify-center ${capturing ? "opacity-60" : ""}`}
         >
           <div className="w-[64px] h-[64px] rounded-full border-[3px] border-white flex items-center justify-center">
             <div className="w-[52px] h-[52px] rounded-full bg-white" />
           </div>
         </button>
-        <span className="text-white/80 text-xs font-semibold mt-3">{capturing ? "Capturing…" : "Click"}</span>
+        <span className="text-white/80 text-xs font-semibold mt-3">
+          {capturing ? "Capturing…" : ready ? "Click" : "Preparing…"}
+        </span>
       </div>
     </div>
   );
