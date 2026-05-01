@@ -106,8 +106,9 @@ export default function CameraScreen() {
     }
 
     try {
-      // @ts-expect-error - "camera" name is widely supported but not in TS lib
-      const status = await navigator.permissions?.query?.({ name: "camera" });
+      const status = await navigator.permissions?.query?.({
+        name: "camera" as PermissionName,
+      });
       if (status?.state === "granted") {
         void handleGrantPermission();
         return;
