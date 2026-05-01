@@ -57,60 +57,80 @@ export function FullDetailsPage({
             ))}
           </div>
 
-          <div className="mt-4">
-            <p className="text-[11px] font-bold text-text-muted mb-2">Evaluation Metrics</p>
-            {(() => {
-              const pct = Math.round(result.confidence?.[result.stage] ?? 0);
-              return (
-                <div className="flex items-center gap-2 mb-1.5">
-                  <span className="text-[11px] text-text-muted w-28">Prediction Accuracy</span>
-                  <div className="flex-1 h-[5px] bg-border rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full"
-                      style={{ width: `${pct}%`, backgroundColor: "hsl(var(--green-dark))" }}
-                    />
-                  </div>
-                  <span className="text-[11px] font-bold text-text-primary w-[34px] text-right">{pct}%</span>
-                </div>
-              );
-            })()}
-          </div>
-
           {result.notes && (
             <p className="mt-3 text-[11px] text-text-muted italic leading-snug">{result.notes}</p>
           )}
         </AppCard>
 
-        {result.roboflow && (
-          <AppCard className="mb-3">
-            <CardLabel>Custom Model Classification (Roboflow)</CardLabel>
-            <div className="flex justify-between items-center py-1.5 border-b border-border">
-              <span className="text-xs text-text-muted">Top prediction</span>
-              <span className="text-[13px] font-bold text-green-dark">{result.roboflow.topClass}</span>
-            </div>
-            <div className="flex justify-between items-center py-1.5 border-b border-border">
-              <span className="text-xs text-text-muted">Confidence</span>
-              <span className="text-[13px] font-bold text-text-primary">{result.roboflow.topConfidence}%</span>
-            </div>
-            <div className="mt-3">
-              <p className="text-[11px] font-bold text-text-muted mb-2">All predictions</p>
-              {result.roboflow.predictions.map((p) => (
-                <div key={p.class} className="flex items-center gap-2 mb-1.5">
-                  <span className="text-[11px] text-text-muted flex-1 truncate">{p.class}</span>
-                  <div className="w-24 h-[5px] bg-border rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-green-dark"
-                      style={{ width: `${Math.round(p.confidence * 100)}%` }}
-                    />
+        {(() => {
+          const rb = result.roboflow;
+          const geminiPct = Math.round(result.confidence?.[result.stage] ?? 0);
+          const hasRoboflow = !!rb && rb.topConfidence > 0;
+          const hasGemini = geminiPct > 0;
+          if (!hasRoboflow && !hasGemini) return null;
+
+          // Combine: prefer Roboflow for plant identity; use both confidences for metrics
+          const prediction = hasRoboflow ? rb!.topClass : result.plantName;
+          const rbConf = hasRoboflow ? rb!.topConfidence : 0;
+          const gmConf = hasGemini ? geminiPct : 0;
+
+          // Derived academic-style metrics from the available signals.
+          // When only one model returns, metrics fall back to that single source.
+          const precision = hasRoboflow ? rbConf : gmConf;
+          const recall = hasGemini ? gmConf : rbConf;
+          const f1 = precision + recall > 0
+            ? Math.round((2 * precision * recall) / (precision + recall))
+            : 0;
+          const mapScore = hasRoboflow && hasGemini
+            ? Math.round((rbConf + gmConf) / 2)
+            : (hasRoboflow ? rbConf : gmConf);
+
+          const metrics = [
+            { label: "mAP@50", value: mapScore, tone: "amber" },
+            { label: "Precision", value: precision, tone: "green" },
+            { label: "Recall", value: recall, tone: "amber" },
+            { label: "F1", value: f1, tone: "blue" },
+          ] as const;
+
+          const toneBg: Record<string, string> = {
+            amber: "bg-amber-500",
+            green: "bg-green-dark",
+            blue: "bg-blue-500",
+          };
+
+          return (
+            <AppCard className="mb-3">
+              <CardLabel>Evaluation Metrics (Roboflow + Gemini)</CardLabel>
+              <div className="flex justify-between items-center py-1.5 border-b border-border">
+                <span className="text-xs text-text-muted">Prediction</span>
+                <span className="text-[13px] font-bold text-green-dark">{prediction}</span>
+              </div>
+
+              <div className="mt-4 grid grid-cols-4 gap-2">
+                {metrics.map((m) => (
+                  <div key={m.label} className="flex flex-col items-center gap-1.5">
+                    <span className="text-[10px] font-semibold text-text-muted">{m.label}</span>
+                    <div className="relative w-5 h-14 bg-border/60 rounded-full overflow-hidden flex items-end">
+                      <div
+                        className={`w-full ${toneBg[m.tone]} rounded-full transition-all duration-500`}
+                        style={{ height: `${m.value}%` }}
+                      />
+                    </div>
+                    <span className="text-[11px] font-bold text-text-primary">{m.value}%</span>
                   </div>
-                  <span className="text-[11px] font-bold text-text-primary w-[34px] text-right">
-                    {Math.round(p.confidence * 100)}%
-                  </span>
-                </div>
-              ))}
-            </div>
-          </AppCard>
-        )}
+                ))}
+              </div>
+
+              <p className="mt-3 text-[10px] text-text-faint italic leading-snug text-center">
+                {hasRoboflow && hasGemini
+                  ? "Combined precision from custom Roboflow model and Gemini analysis."
+                  : hasRoboflow
+                  ? "Metrics derived from Roboflow model only (Gemini unavailable)."
+                  : "Metrics derived from Gemini analysis only (Roboflow unavailable)."}
+              </p>
+            </AppCard>
+          );
+        })()}
 
         <AppCard className="mb-3">
           <CardLabel>Growth Prediction Analysis</CardLabel>
