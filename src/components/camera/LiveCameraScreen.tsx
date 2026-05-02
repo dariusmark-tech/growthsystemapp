@@ -23,61 +23,74 @@ export function LiveCameraScreen({ stream, error, onCapture, onClose, onRetry }:
   const [capturing, setCapturing] = useState(false);
   const [ready, setReady] = useState(false);
 
-  // Bind preview (mirrors setCamera + getPreview in the Kotlin VM)
+  // Bind preview (mirrors setCamera + getPreview in the Kotlin VM).
+  // We retry binding if the <video> ref isn't mounted yet on first run.
   useEffect(() => {
     setReady(false);
     setCapturing(false);
 
-    const video = videoRef.current;
-    if (!video) return;
-
     if (!stream) {
-      video.pause();
-      video.srcObject = null;
+      const v = videoRef.current;
+      if (v) {
+        v.pause();
+        v.srcObject = null;
+      }
       return;
     }
 
     let cancelled = false;
     let pollId: number | null = null;
+    let bindRaf: number | null = null;
 
-    // Poll until the video actually has frame dimensions — this is the web
-    // equivalent of waiting for CameraX's preview to start streaming.
     const checkReady = () => {
       if (cancelled) return;
-      if (video.videoWidth > 0 && video.videoHeight > 0 && video.readyState >= 2) {
+      const v = videoRef.current;
+      if (!v) return;
+      if (v.videoWidth > 0 && v.videoHeight > 0 && v.readyState >= 2) {
         setReady(true);
-        if (pollId !== null) {
-          window.clearInterval(pollId);
-          pollId = null;
-        }
       }
     };
 
-    video.setAttribute("playsinline", "true");
-    video.muted = true;
-    video.autoplay = true;
-    video.srcObject = stream;
-
-    video.onloadedmetadata = checkReady;
-    video.onloadeddata = checkReady;
-    video.oncanplay = checkReady;
-    video.onplaying = checkReady;
-
-    const startPlayback = async () => {
-      try {
-        await video.play();
-      } catch (err) {
-        console.warn("LiveCameraScreen: video.play() failed, will keep polling", err);
+    const bind = () => {
+      if (cancelled) return;
+      const video = videoRef.current;
+      if (!video) {
+        bindRaf = window.requestAnimationFrame(bind);
+        return;
       }
+
+      video.setAttribute("playsinline", "true");
+      video.setAttribute("webkit-playsinline", "true");
+      video.muted = true;
+      video.autoplay = true;
+      if (video.srcObject !== stream) {
+        video.srcObject = stream;
+      }
+
+      video.onloadedmetadata = checkReady;
+      video.onloadeddata = checkReady;
+      video.oncanplay = checkReady;
+      video.onplaying = checkReady;
+
+      const tryPlay = () => {
+        video.play().catch((err) => {
+          console.warn("LiveCameraScreen: video.play() failed", err);
+        });
+      };
+      tryPlay();
+      // Retry play once shortly after — some browsers need a tick after srcObject
+      window.setTimeout(tryPlay, 50);
+
       checkReady();
       pollId = window.setInterval(checkReady, 150);
     };
 
-    void startPlayback();
+    bind();
 
     return () => {
       cancelled = true;
       if (pollId !== null) window.clearInterval(pollId);
+      if (bindRaf !== null) window.cancelAnimationFrame(bindRaf);
       const v = videoRef.current;
       if (v) {
         v.onloadedmetadata = null;
