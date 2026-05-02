@@ -378,23 +378,23 @@ export default function CameraScreen() {
         )}
       </div>
 
-      <div className="flex gap-3 mb-4">
+      <div className="flex gap-2.5 mb-4">
         <button
-          className="flex-1 bg-green-dark rounded-xl py-4 flex flex-col items-center justify-center gap-1.5"
+          className="flex-1 bg-green-dark rounded-lg py-2.5 flex flex-row items-center justify-center gap-2"
           onClick={() => void handleOpenLiveCamera()}
         >
-          <div className="w-7 h-7 rounded-full border-2 border-white flex items-center justify-center">
-            <div className="w-4 h-4 rounded-full bg-white" />
+          <div className="w-5 h-5 rounded-full border-[1.5px] border-white flex items-center justify-center">
+            <div className="w-2.5 h-2.5 rounded-full bg-white" />
           </div>
-          <span className="text-primary-foreground font-extrabold text-[13px]">Capture Image</span>
+          <span className="text-primary-foreground font-bold text-[12px]">Capture</span>
         </button>
 
         <button
-          className="flex-1 bg-card-alt border border-border rounded-xl py-4 flex flex-col items-center justify-center gap-1.5"
+          className="flex-1 bg-card-alt border border-border rounded-lg py-2.5 flex flex-row items-center justify-center gap-2"
           onClick={handleUploadPicture}
         >
-          <Upload size={22} className="text-green-dark" strokeWidth={2.5} />
-          <span className="text-text-primary font-extrabold text-[13px]">Upload Picture</span>
+          <Upload size={16} className="text-green-dark" strokeWidth={2.5} />
+          <span className="text-text-primary font-bold text-[12px]">Upload</span>
         </button>
       </div>
 
