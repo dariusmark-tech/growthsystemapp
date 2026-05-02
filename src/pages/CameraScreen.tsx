@@ -62,10 +62,14 @@ export default function CameraScreen() {
   };
 
   useEffect(() => {
+    // Auto-launch the camera as soon as the Camera tab opens.
+    // The browser will show its native permission dialog on first visit.
+    void handleOpenLiveCamera();
     return () => {
       cameraRequestIdRef.current += 1;
       stopCameraStream();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const resetClassification = () => {
