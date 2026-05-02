@@ -105,19 +105,18 @@ export function LiveCameraScreen({ stream, error, onCapture, onClose, onRetry }:
 
   /**
    * captureImage(context, onImageCaptured) — ported from Kotlin.
-   * Grabs the current frame from <video> and emits a JPEG data URL.
+   * Tries the native ImageCapture API first (closest to CameraX's takePicture),
+   * then falls back to drawing the current <video> frame onto a canvas.
    */
   const handleShutter = async () => {
-    const video = videoRef.current;
-    if (!video || capturing) return;
-
+    if (capturing) return;
     setCapturing(true);
 
-    // Wait briefly if the frame isn't ready yet — equivalent to the Kotlin
-    // "ImageCapture is null" guard but with a short retry instead of failing.
     const waitForFrame = async () => {
-      for (let i = 0; i < 20; i++) {
-        if (video.videoWidth > 0 && video.videoHeight > 0) return true;
+      const v = videoRef.current;
+      if (!v) return false;
+      for (let i = 0; i < 30; i++) {
+        if (v.videoWidth > 0 && v.videoHeight > 0) return true;
         await new Promise((r) => setTimeout(r, 100));
       }
       return false;
@@ -125,33 +124,48 @@ export function LiveCameraScreen({ stream, error, onCapture, onClose, onRetry }:
 
     try {
       const haveFrame = await waitForFrame();
-      if (!haveFrame) {
+      const video = videoRef.current;
+      if (!haveFrame || !video) {
         console.error("LiveCameraScreen: no video frame available to capture");
         setCapturing(false);
         return;
       }
 
+      // Preferred path: native ImageCapture (mirrors CameraX ImageCapture)
+      const track = stream?.getVideoTracks?.()[0];
+      const ImageCaptureCtor = (window as unknown as { ImageCapture?: new (t: MediaStreamTrack) => { takePhoto: () => Promise<Blob> } }).ImageCapture;
+      if (track && ImageCaptureCtor) {
+        try {
+          const ic = new ImageCaptureCtor(track);
+          const blob = await ic.takePhoto();
+          const dataUrl: string = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+          console.log("LiveCameraScreen: image captured via ImageCapture");
+          onCapture(dataUrl);
+          return;
+        } catch (icErr) {
+          console.warn("LiveCameraScreen: ImageCapture failed, falling back to canvas", icErr);
+        }
+      }
+
+      // Fallback: draw current frame onto reusable canvas
       const width = video.videoWidth;
       const height = video.videoHeight;
-
-      // Reuse a single canvas instance, like the single ImageCapture field.
       const canvas = captureCanvasRef.current ?? document.createElement("canvas");
       captureCanvasRef.current = canvas;
       canvas.width = width;
       canvas.height = height;
-
       const ctx = canvas.getContext("2d");
       if (!ctx) throw new Error("No 2d context");
-
-      // Draw the live frame — this is the takePicture() call.
       ctx.drawImage(video, 0, 0, width, height);
-
-      // onImageSaved callback equivalent
       const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
-      console.log("LiveCameraScreen: image captured", `${width}x${height}`);
+      console.log("LiveCameraScreen: image captured via canvas", `${width}x${height}`);
       onCapture(dataUrl);
     } catch (err) {
-      // onError callback equivalent
       console.error("LiveCameraScreen: image capture failed", err);
       setCapturing(false);
     }
