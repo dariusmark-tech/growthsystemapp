@@ -62,14 +62,10 @@ export default function CameraScreen() {
   };
 
   useEffect(() => {
-    // Auto-launch the camera as soon as the Camera tab opens.
-    // The browser will show its native permission dialog on first visit.
-    void handleOpenLiveCamera();
     return () => {
       cameraRequestIdRef.current += 1;
       stopCameraStream();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const resetClassification = () => {
@@ -99,19 +95,36 @@ export default function CameraScreen() {
     uploadInputRef.current?.click();
   };
 
-  // Directly request camera access. The browser's own permission dialog
-  // is the only prompt the user sees — no extra in-app step.
+  // Step 1: Show our custom "Allow Camera" prompt. The browser's native
+  // permission dialog only appears once we actually call getUserMedia,
+  // which happens in handleGrantPermission below.
   const handleOpenLiveCamera = async () => {
     if (!navigator.mediaDevices?.getUserMedia) {
       setCameraError("This browser does not support live camera access.");
       setShowLiveCamera(true);
       return;
     }
-    setShowPermissionPrompt(false);
-    setPermissionDenied(false);
-    await handleGrantPermission();
-  };
 
+    try {
+      const status = await navigator.permissions?.query?.({
+        name: "camera" as PermissionName,
+      });
+      if (status?.state === "granted") {
+        void handleGrantPermission();
+        return;
+      }
+      if (status?.state === "denied") {
+        setPermissionDenied(true);
+        setShowPermissionPrompt(true);
+        return;
+      }
+    } catch {
+      // Permissions API not supported in this browser — fall through
+    }
+
+    setPermissionDenied(false);
+    setShowPermissionPrompt(true);
+  };
 
   // Step 2: User clicked "Allow Camera" — this user gesture is what
   // makes the browser show its native permission dialog.
