@@ -185,7 +185,7 @@ export function LiveCameraScreen({ onCapture, onClose }: LiveCameraScreenProps) 
       }
 
       // Preferred path: native ImageCapture (mirrors CameraX ImageCapture)
-      const track = stream?.getVideoTracks?.()[0];
+      const track = streamRef.current?.getVideoTracks?.()[0];
       const ImageCaptureCtor = (window as unknown as { ImageCapture?: new (t: MediaStreamTrack) => { takePhoto: () => Promise<Blob> } }).ImageCapture;
       if (track && ImageCaptureCtor) {
         try {
@@ -232,10 +232,10 @@ export function LiveCameraScreen({ onCapture, onClose }: LiveCameraScreenProps) 
         <p className="text-primary-foreground/70 text-sm mb-6 max-w-[280px]">{error}</p>
         <div className="flex flex-col gap-3 w-full max-w-[240px]">
           <button
-            onClick={onRetry}
+            onClick={() => void startCamera()}
             className="px-5 py-2.5 rounded-full bg-green-dark text-primary-foreground text-sm font-bold"
           >
-            Try again
+            {needsPermission ? "Allow Camera" : "Try again"}
           </button>
           <button
             onClick={onClose}
