@@ -40,6 +40,7 @@ function getCameraErrorMessage(error: unknown) {
  */
 export function LiveCameraScreen({ onCapture, onClose }: LiveCameraScreenProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const deviceCaptureInputRef = useRef<HTMLInputElement | null>(null);
   const captureCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [capturing, setCapturing] = useState(false);
@@ -101,6 +102,17 @@ export function LiveCameraScreen({ onCapture, onClose }: LiveCameraScreenProps) 
       { video: { facingMode: { ideal: "user" } }, audio: false },
     ];
 
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      devices
+        .filter((device) => device.kind === "videoinput" && device.deviceId)
+        .forEach((device) => {
+          constraints.push({ video: { deviceId: { exact: device.deviceId } }, audio: false });
+        });
+    } catch {
+      // Device enumeration is optional; the generic camera constraints above still work.
+    }
+
     let lastError: unknown = null;
     for (const constraint of constraints) {
       for (let attempt = 0; attempt < 2; attempt++) {
@@ -130,6 +142,19 @@ export function LiveCameraScreen({ onCapture, onClose }: LiveCameraScreenProps) 
 
     setError(getCameraErrorMessage(lastError));
   }, [bindPreview, stopCamera]);
+
+  const handleDeviceCapture = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      stopCamera();
+      onCapture(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+    event.target.value = "";
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -232,7 +257,8 @@ export function LiveCameraScreen({ onCapture, onClose }: LiveCameraScreenProps) 
 
   if (checking || (needsPermission && !error)) {
     return (
-      <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center p-6 text-center">
+      <div className="fixed inset-0 z-[60] bg-black flex flex-col items-center justify-center p-6 text-center">
+        <input ref={deviceCaptureInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleDeviceCapture} />
         <span className="text-5xl mb-4">📷</span>
         <h2 className="text-primary-foreground text-lg font-bold mb-2">
           {checking ? "Checking camera…" : "Allow Camera Access"}
@@ -263,6 +289,7 @@ export function LiveCameraScreen({ onCapture, onClose }: LiveCameraScreenProps) 
   if (error) {
     return (
       <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center p-6 text-center">
+        <input ref={deviceCaptureInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleDeviceCapture} />
         <span className="text-5xl mb-4">📷</span>
         <h2 className="text-primary-foreground text-lg font-bold mb-2">Camera Access Needed</h2>
         <p className="text-primary-foreground/70 text-sm mb-6 max-w-[280px]">{error}</p>
@@ -272,6 +299,12 @@ export function LiveCameraScreen({ onCapture, onClose }: LiveCameraScreenProps) 
             className="px-5 py-2.5 rounded-full bg-green-dark text-primary-foreground text-sm font-bold"
           >
             {needsPermission ? "Allow Camera" : "Try again"}
+          </button>
+          <button
+            onClick={() => deviceCaptureInputRef.current?.click()}
+            className="px-5 py-2.5 rounded-full bg-primary-foreground text-green-dark text-sm font-bold"
+          >
+            Open device camera
           </button>
           <button
             onClick={onClose}
@@ -285,7 +318,8 @@ export function LiveCameraScreen({ onCapture, onClose }: LiveCameraScreenProps) 
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black flex flex-col">
+    <div className="fixed inset-0 z-[60] bg-black flex flex-col">
+      <input ref={deviceCaptureInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleDeviceCapture} />
       <div className="flex items-center justify-between px-4 pt-12 pb-3">
         <button onClick={onClose} className="w-11 h-11 rounded-full bg-white/15 flex items-center justify-center">
           <X size={22} className="text-white" />
