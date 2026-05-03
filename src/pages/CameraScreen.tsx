@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Upload } from "lucide-react";
 import { AppCard, CardLabel, StatusBadge } from "@/components/shared/SharedComponents";
 import { LiveCameraScreen } from "@/components/camera/LiveCameraScreen";
@@ -8,36 +8,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
-function mapCameraError(error: unknown) {
-  const err = error as { name?: string; message?: string } | null;
-
-  if (!navigator.mediaDevices?.getUserMedia) {
-    return "This browser does not support live camera access.";
-  }
-
-  if (err?.name === "NotAllowedError") {
-    return "Camera permission was denied. Please allow access and try again.";
-  }
-
-  if (err?.name === "NotFoundError") {
-    return "No camera was found on this device.";
-  }
-
-  if (err?.name === "NotReadableError") {
-    return "The camera couldn't start. If you're viewing this inside the Lovable preview, tap 'Open in new tab' (top-right of the preview) and try again. Also close any other app or browser tab that may be using the camera.";
-  }
-
-  if (err?.name === "OverconstrainedError") {
-    return "This camera mode is not available on your device.";
-  }
-
-  if (location.protocol !== "https:") {
-    return "Live camera needs a secure HTTPS connection.";
-  }
-
-  return err?.message || "Could not start the camera.";
-}
-
 export default function CameraScreen() {
   const { user } = useAuth();
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -45,28 +15,8 @@ export default function CameraScreen() {
   const [classifying, setClassifying] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [showLiveCamera, setShowLiveCamera] = useState(false);
-  const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
-  const [permissionDenied, setPermissionDenied] = useState(false);
-  const [cameraError, setCameraError] = useState<string | null>(null);
-  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
-  const [requestingPermission, setRequestingPermission] = useState(false);
   const [result, setResult] = useState<PlantAnalysis | null>(null);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const cameraRequestIdRef = useRef(0);
-
-  const stopCameraStream = () => {
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    streamRef.current = null;
-    setCameraStream(null);
-  };
-
-  useEffect(() => {
-    return () => {
-      cameraRequestIdRef.current += 1;
-      stopCameraStream();
-    };
-  }, []);
 
   const resetClassification = () => {
     setClassified(false);
@@ -77,138 +27,18 @@ export default function CameraScreen() {
   const handleCaptured = (uri: string) => {
     setImageUri(uri);
     resetClassification();
-    cameraRequestIdRef.current += 1;
-    stopCameraStream();
-    setCameraError(null);
     setShowLiveCamera(false);
   };
 
   const handleCloseLiveCamera = () => {
-    cameraRequestIdRef.current += 1;
-    stopCameraStream();
-    setCameraError(null);
     setShowLiveCamera(false);
-    setShowPermissionPrompt(false);
   };
 
   const handleUploadPicture = () => {
     uploadInputRef.current?.click();
   };
 
-  // Step 1: Show our custom "Allow Camera" prompt. The browser's native
-  // permission dialog only appears once we actually call getUserMedia,
-  // which happens in handleGrantPermission below.
-  const handleOpenLiveCamera = async () => {
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setCameraError("This browser does not support live camera access.");
-      setShowLiveCamera(true);
-      return;
-    }
-
-    try {
-      const status = await navigator.permissions?.query?.({
-        name: "camera" as PermissionName,
-      });
-      if (status?.state === "granted") {
-        void handleGrantPermission();
-        return;
-      }
-      if (status?.state === "denied") {
-        setPermissionDenied(true);
-        setShowPermissionPrompt(true);
-        return;
-      }
-    } catch {
-      // Permissions API not supported in this browser — fall through
-    }
-
-    setPermissionDenied(false);
-    setShowPermissionPrompt(true);
-  };
-
-  // Step 2: User clicked "Allow Camera" — this user gesture is what
-  // makes the browser show its native permission dialog.
-  const handleGrantPermission = async () => {
-    const requestId = ++cameraRequestIdRef.current;
-    setRequestingPermission(true);
-    stopCameraStream();
-    setCameraError(null);
-
-    const attempts: MediaStreamConstraints[] = [
-      {
-        video: {
-          facingMode: { ideal: "environment" },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-        audio: false,
-      },
-      {
-        video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-        audio: false,
-      },
-      { video: true, audio: false },
-    ];
-
-    let lastError: unknown = null;
-
-    for (const constraints of attempts) {
-      // Retry each constraint up to 3 times for NotReadableError —
-      // the OS sometimes hasn't released the device from a previous request yet.
-      for (let attempt = 0; attempt < 3; attempt++) {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia(constraints);
-
-          if (requestId !== cameraRequestIdRef.current) {
-            stream.getTracks().forEach((t) => t.stop());
-            setRequestingPermission(false);
-            return;
-          }
-
-          streamRef.current = stream;
-          setCameraStream(stream);
-          setCameraError(null);
-          setShowPermissionPrompt(false);
-          setShowLiveCamera(true);
-          setRequestingPermission(false);
-          return;
-        } catch (error) {
-          lastError = error;
-          const name = (error as { name?: string })?.name;
-          if (name === "NotAllowedError" || name === "SecurityError") {
-            break;
-          }
-          if (name === "NotReadableError") {
-            // Wait briefly for the device to free up, then retry.
-            await new Promise((r) => setTimeout(r, 350));
-            continue;
-          }
-          break;
-        }
-      }
-      const name = (lastError as { name?: string })?.name;
-      if (name === "NotAllowedError" || name === "SecurityError") break;
-    }
-
-    if (requestId !== cameraRequestIdRef.current) {
-      setRequestingPermission(false);
-      return;
-    }
-
-    const errName = (lastError as { name?: string })?.name;
-    if (errName === "NotAllowedError" || errName === "SecurityError") {
-      setPermissionDenied(true);
-      setShowPermissionPrompt(true);
-    } else {
-      setCameraError(mapCameraError(lastError));
-      setShowPermissionPrompt(false);
-      setShowLiveCamera(true);
-    }
-    setRequestingPermission(false);
-  };
+  const handleOpenLiveCamera = () => setShowLiveCamera(true);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
