@@ -128,63 +128,8 @@ export default function CameraScreen() {
     }
   };
 
-  if (showPermissionPrompt) {
-    return (
-      <div className="fixed inset-0 z-50 bg-background flex flex-col items-center justify-center p-6 text-center">
-        <div className="w-20 h-20 rounded-full bg-green-light flex items-center justify-center mb-5">
-          <div className="w-10 h-10 rounded-full border-[3px] border-green-dark flex items-center justify-center">
-            <div className="w-4 h-4 rounded-full bg-green-dark" />
-          </div>
-        </div>
-        <h2 className="text-text-primary text-[18px] font-extrabold mb-2">
-          {permissionDenied ? "Camera Access Blocked" : "Allow Camera Access"}
-        </h2>
-        <p className="text-text-muted text-sm mb-6 max-w-[300px] leading-snug">
-          {permissionDenied
-            ? "Camera permission was previously denied. To use the live camera, please enable it in your browser settings (tap the lock icon in the address bar) and reload the page."
-            : "This app needs your permission to use the camera so you can capture plant photos in real time."}
-        </p>
-        <div className="flex flex-col gap-3 w-full max-w-[260px]">
-          {!permissionDenied && (
-            <button
-              onClick={() => void handleGrantPermission()}
-              disabled={requestingPermission}
-              className={`px-5 py-3 rounded-full bg-green-dark text-primary-foreground text-sm font-bold ${
-                requestingPermission ? "opacity-60" : ""
-              }`}
-            >
-              {requestingPermission ? "Requesting…" : "Allow Camera"}
-            </button>
-          )}
-          {permissionDenied && (
-            <button
-              onClick={() => window.location.reload()}
-              className="px-5 py-3 rounded-full bg-green-dark text-primary-foreground text-sm font-bold"
-            >
-              Reload page
-            </button>
-          )}
-          <button
-            onClick={handleCloseLiveCamera}
-            className="px-5 py-3 rounded-full text-text-muted text-sm font-bold"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   if (showLiveCamera) {
-    return (
-      <LiveCameraScreen
-        stream={cameraStream}
-        error={cameraError}
-        onCapture={handleCaptured}
-        onClose={handleCloseLiveCamera}
-        onRetry={() => void handleGrantPermission()}
-      />
-    );
+    return <LiveCameraScreen onCapture={handleCaptured} onClose={handleCloseLiveCamera} />;
   }
 
   if (showDetails && result) {
