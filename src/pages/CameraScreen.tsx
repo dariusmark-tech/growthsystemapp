@@ -24,7 +24,7 @@ function mapCameraError(error: unknown) {
   }
 
   if (err?.name === "NotReadableError") {
-    return "The camera is busy or blocked by another app/browser tab. Close it and try again.";
+    return "The camera couldn't start. If you're viewing this inside the Lovable preview, tap 'Open in new tab' (top-right of the preview) and try again. Also close any other app or browser tab that may be using the camera.";
   }
 
   if (err?.name === "OverconstrainedError") {
