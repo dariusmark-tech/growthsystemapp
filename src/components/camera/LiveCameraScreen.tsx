@@ -1,12 +1,34 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 
 interface LiveCameraScreenProps {
-  stream: MediaStream | null;
-  error: string | null;
   onCapture: (uri: string) => void;
   onClose: () => void;
-  onRetry: () => void;
+}
+
+function getCameraErrorMessage(error: unknown) {
+  const err = error as { name?: string; message?: string } | null;
+
+  if (!navigator.mediaDevices?.getUserMedia) {
+    return "This browser does not support live camera access.";
+  }
+  if (!window.isSecureContext) {
+    return "Live camera needs a secure HTTPS connection.";
+  }
+  if (err?.name === "NotAllowedError" || err?.name === "SecurityError") {
+    return "Camera permission was denied. Please allow camera access in your browser settings, then try again.";
+  }
+  if (err?.name === "NotFoundError" || err?.name === "DevicesNotFoundError") {
+    return "No camera was found on this device.";
+  }
+  if (err?.name === "NotReadableError" || err?.name === "TrackStartError") {
+    return "The camera is blocked or already being used. Close other camera apps/tabs, allow camera access for this site, then try again.";
+  }
+  if (err?.name === "OverconstrainedError" || err?.name === "ConstraintNotSatisfiedError") {
+    return "This camera mode is not available on your device.";
+  }
+
+  return err?.message || "Could not start the camera.";
 }
 
 /**
@@ -16,92 +38,123 @@ interface LiveCameraScreenProps {
  *  - captureImage()     -> draw current video frame to canvas, emit data URL
  *  - onImageSaved/onError callbacks -> resolve/reject in handleShutter
  */
-export function LiveCameraScreen({ stream, error, onCapture, onClose, onRetry }: LiveCameraScreenProps) {
+export function LiveCameraScreen({ onCapture, onClose }: LiveCameraScreenProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  // ImageCapture surface (mirrors imageCapture field in CameraViewModel)
   const captureCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const [capturing, setCapturing] = useState(false);
   const [ready, setReady] = useState(false);
+  const [checking, setChecking] = useState(true);
+  const [needsPermission, setNeedsPermission] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Bind preview (mirrors setCamera + getPreview in the Kotlin VM).
-  // We retry binding if the <video> ref isn't mounted yet on first run.
-  useEffect(() => {
-    setReady(false);
-    setCapturing(false);
-
-    if (!stream) {
-      const v = videoRef.current;
-      if (v) {
-        v.pause();
-        v.srcObject = null;
-      }
-      return;
+  const stopCamera = useCallback(() => {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    const video = videoRef.current;
+    if (video) {
+      video.pause();
+      video.srcObject = null;
     }
+    setReady(false);
+  }, []);
 
-    let cancelled = false;
-    let pollId: number | null = null;
-    let bindRaf: number | null = null;
+  const bindPreview = useCallback((stream: MediaStream) => {
+    const video = videoRef.current;
+    if (!video) return false;
 
-    const checkReady = () => {
-      if (cancelled) return;
-      const v = videoRef.current;
-      if (!v) return;
-      if (v.videoWidth > 0 && v.videoHeight > 0 && v.readyState >= 2) {
+    video.setAttribute("playsinline", "true");
+    video.setAttribute("webkit-playsinline", "true");
+    video.muted = true;
+    video.autoplay = true;
+    video.srcObject = stream;
+
+    const markReady = () => {
+      if (video.videoWidth > 0 && video.videoHeight > 0 && video.readyState >= 2) {
         setReady(true);
       }
     };
 
-    const bind = () => {
-      if (cancelled) return;
-      const video = videoRef.current;
-      if (!video) {
-        bindRaf = window.requestAnimationFrame(bind);
-        return;
+    video.onloadedmetadata = markReady;
+    video.onloadeddata = markReady;
+    video.oncanplay = markReady;
+    video.onplaying = markReady;
+    void video.play().then(markReady).catch(() => undefined);
+    return true;
+  }, []);
+
+  const startCamera = useCallback(async () => {
+    setChecking(false);
+    setNeedsPermission(false);
+    setError(null);
+    setCapturing(false);
+    stopCamera();
+
+    if (!navigator.mediaDevices?.getUserMedia || !window.isSecureContext) {
+      setError(getCameraErrorMessage(null));
+      return;
+    }
+
+    const constraints: MediaStreamConstraints[] = [
+      { video: true, audio: false },
+      { video: { facingMode: { ideal: "environment" } }, audio: false },
+      { video: { facingMode: { ideal: "user" } }, audio: false },
+    ];
+
+    let lastError: unknown = null;
+    for (const constraint of constraints) {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia(constraint);
+          streamRef.current = stream;
+          if (!bindPreview(stream)) {
+            requestAnimationFrame(() => bindPreview(stream));
+          }
+          return;
+        } catch (err) {
+          lastError = err;
+          const name = (err as { name?: string })?.name;
+          if (name === "NotAllowedError" || name === "SecurityError") {
+            setNeedsPermission(true);
+            setError(getCameraErrorMessage(err));
+            return;
+          }
+          if (name === "NotReadableError" || name === "TrackStartError") {
+            await new Promise((resolve) => setTimeout(resolve, 500));
+          } else {
+            break;
+          }
+        }
       }
+    }
 
-      video.setAttribute("playsinline", "true");
-      video.setAttribute("webkit-playsinline", "true");
-      video.muted = true;
-      video.autoplay = true;
-      if (video.srcObject !== stream) {
-        video.srcObject = stream;
+    setError(getCameraErrorMessage(lastError));
+  }, [bindPreview, stopCamera]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const checkPermissionAndStart = async () => {
+      try {
+        const status = await navigator.permissions?.query?.({ name: "camera" as PermissionName });
+        if (!mounted) return;
+        if (status?.state === "denied" || status?.state === "prompt") {
+          setNeedsPermission(true);
+          setChecking(false);
+          return;
+        }
+      } catch {
+        // Permissions API is not available everywhere; fall back to requesting directly.
       }
-
-      video.onloadedmetadata = checkReady;
-      video.onloadeddata = checkReady;
-      video.oncanplay = checkReady;
-      video.onplaying = checkReady;
-
-      const tryPlay = () => {
-        video.play().catch((err) => {
-          console.warn("LiveCameraScreen: video.play() failed", err);
-        });
-      };
-      tryPlay();
-      // Retry play once shortly after — some browsers need a tick after srcObject
-      window.setTimeout(tryPlay, 50);
-
-      checkReady();
-      pollId = window.setInterval(checkReady, 150);
+      if (mounted) void startCamera();
     };
 
-    bind();
-
+    void checkPermissionAndStart();
     return () => {
-      cancelled = true;
-      if (pollId !== null) window.clearInterval(pollId);
-      if (bindRaf !== null) window.cancelAnimationFrame(bindRaf);
-      const v = videoRef.current;
-      if (v) {
-        v.onloadedmetadata = null;
-        v.onloadeddata = null;
-        v.oncanplay = null;
-        v.onplaying = null;
-        v.pause();
-        v.srcObject = null;
-      }
+      mounted = false;
+      stopCamera();
     };
-  }, [stream]);
+  }, [startCamera, stopCamera]);
 
   /**
    * captureImage(context, onImageCaptured) — ported from Kotlin.
