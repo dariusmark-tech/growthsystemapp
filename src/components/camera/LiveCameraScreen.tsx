@@ -138,7 +138,13 @@ export function LiveCameraScreen({ onCapture, onClose }: LiveCameraScreenProps) 
       try {
         const status = await navigator.permissions?.query?.({ name: "camera" as PermissionName });
         if (!mounted) return;
-        if (status?.state === "denied" || status?.state === "prompt") {
+        if (status?.state === "denied") {
+          setNeedsPermission(true);
+          setError(getCameraErrorMessage({ name: "NotAllowedError" }));
+          setChecking(false);
+          return;
+        }
+        if (status?.state === "prompt") {
           setNeedsPermission(true);
           setChecking(false);
           return;
@@ -223,6 +229,36 @@ export function LiveCameraScreen({ onCapture, onClose }: LiveCameraScreenProps) 
       setCapturing(false);
     }
   };
+
+  if (checking || (needsPermission && !error)) {
+    return (
+      <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center p-6 text-center">
+        <span className="text-5xl mb-4">📷</span>
+        <h2 className="text-primary-foreground text-lg font-bold mb-2">
+          {checking ? "Checking camera…" : "Allow Camera Access"}
+        </h2>
+        <p className="text-primary-foreground/70 text-sm mb-6 max-w-[280px]">
+          This app needs your permission to use the camera and capture a live plant photo.
+        </p>
+        {!checking && (
+          <div className="flex flex-col gap-3 w-full max-w-[240px]">
+            <button
+              onClick={() => void startCamera()}
+              className="px-5 py-2.5 rounded-full bg-green-dark text-primary-foreground text-sm font-bold"
+            >
+              Allow Camera
+            </button>
+            <button
+              onClick={onClose}
+              className="px-5 py-2.5 rounded-full text-primary-foreground/80 text-sm font-bold"
+            >
+              ← Go back
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (error) {
     return (
