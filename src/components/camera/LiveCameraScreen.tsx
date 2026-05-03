@@ -1,12 +1,34 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 
 interface LiveCameraScreenProps {
-  stream: MediaStream | null;
-  error: string | null;
   onCapture: (uri: string) => void;
   onClose: () => void;
-  onRetry: () => void;
+}
+
+function getCameraErrorMessage(error: unknown) {
+  const err = error as { name?: string; message?: string } | null;
+
+  if (!navigator.mediaDevices?.getUserMedia) {
+    return "This browser does not support live camera access.";
+  }
+  if (!window.isSecureContext) {
+    return "Live camera needs a secure HTTPS connection.";
+  }
+  if (err?.name === "NotAllowedError" || err?.name === "SecurityError") {
+    return "Camera permission was denied. Please allow camera access in your browser settings, then try again.";
+  }
+  if (err?.name === "NotFoundError" || err?.name === "DevicesNotFoundError") {
+    return "No camera was found on this device.";
+  }
+  if (err?.name === "NotReadableError" || err?.name === "TrackStartError") {
+    return "The camera is blocked or already being used. Close other camera apps/tabs, allow camera access for this site, then try again.";
+  }
+  if (err?.name === "OverconstrainedError" || err?.name === "ConstraintNotSatisfiedError") {
+    return "This camera mode is not available on your device.";
+  }
+
+  return err?.message || "Could not start the camera.";
 }
 
 /**
@@ -16,92 +38,154 @@ interface LiveCameraScreenProps {
  *  - captureImage()     -> draw current video frame to canvas, emit data URL
  *  - onImageSaved/onError callbacks -> resolve/reject in handleShutter
  */
-export function LiveCameraScreen({ stream, error, onCapture, onClose, onRetry }: LiveCameraScreenProps) {
+export function LiveCameraScreen({ onCapture, onClose }: LiveCameraScreenProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  // ImageCapture surface (mirrors imageCapture field in CameraViewModel)
+  const deviceCaptureInputRef = useRef<HTMLInputElement | null>(null);
   const captureCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const [capturing, setCapturing] = useState(false);
   const [ready, setReady] = useState(false);
+  const [checking, setChecking] = useState(true);
+  const [needsPermission, setNeedsPermission] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Bind preview (mirrors setCamera + getPreview in the Kotlin VM).
-  // We retry binding if the <video> ref isn't mounted yet on first run.
-  useEffect(() => {
-    setReady(false);
-    setCapturing(false);
-
-    if (!stream) {
-      const v = videoRef.current;
-      if (v) {
-        v.pause();
-        v.srcObject = null;
-      }
-      return;
+  const stopCamera = useCallback(() => {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    const video = videoRef.current;
+    if (video) {
+      video.pause();
+      video.srcObject = null;
     }
+    setReady(false);
+  }, []);
 
-    let cancelled = false;
-    let pollId: number | null = null;
-    let bindRaf: number | null = null;
+  const bindPreview = useCallback((stream: MediaStream) => {
+    const video = videoRef.current;
+    if (!video) return false;
 
-    const checkReady = () => {
-      if (cancelled) return;
-      const v = videoRef.current;
-      if (!v) return;
-      if (v.videoWidth > 0 && v.videoHeight > 0 && v.readyState >= 2) {
+    video.setAttribute("playsinline", "true");
+    video.setAttribute("webkit-playsinline", "true");
+    video.muted = true;
+    video.autoplay = true;
+    video.srcObject = stream;
+
+    const markReady = () => {
+      if (video.videoWidth > 0 && video.videoHeight > 0 && video.readyState >= 2) {
         setReady(true);
       }
     };
 
-    const bind = () => {
-      if (cancelled) return;
-      const video = videoRef.current;
-      if (!video) {
-        bindRaf = window.requestAnimationFrame(bind);
-        return;
-      }
+    video.onloadedmetadata = markReady;
+    video.onloadeddata = markReady;
+    video.oncanplay = markReady;
+    video.onplaying = markReady;
+    void video.play().then(markReady).catch(() => undefined);
+    return true;
+  }, []);
 
-      video.setAttribute("playsinline", "true");
-      video.setAttribute("webkit-playsinline", "true");
-      video.muted = true;
-      video.autoplay = true;
-      if (video.srcObject !== stream) {
-        video.srcObject = stream;
-      }
+  const startCamera = useCallback(async () => {
+    setChecking(false);
+    setNeedsPermission(false);
+    setError(null);
+    setCapturing(false);
+    stopCamera();
 
-      video.onloadedmetadata = checkReady;
-      video.onloadeddata = checkReady;
-      video.oncanplay = checkReady;
-      video.onplaying = checkReady;
+    if (!navigator.mediaDevices?.getUserMedia || !window.isSecureContext) {
+      setError(getCameraErrorMessage(null));
+      return;
+    }
 
-      const tryPlay = () => {
-        video.play().catch((err) => {
-          console.warn("LiveCameraScreen: video.play() failed", err);
+    const constraints: MediaStreamConstraints[] = [
+      { video: true, audio: false },
+      { video: { facingMode: { ideal: "environment" } }, audio: false },
+      { video: { facingMode: { ideal: "user" } }, audio: false },
+    ];
+
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      devices
+        .filter((device) => device.kind === "videoinput" && device.deviceId)
+        .forEach((device) => {
+          constraints.push({ video: { deviceId: { exact: device.deviceId } }, audio: false });
         });
-      };
-      tryPlay();
-      // Retry play once shortly after — some browsers need a tick after srcObject
-      window.setTimeout(tryPlay, 50);
+    } catch {
+      // Device enumeration is optional; the generic camera constraints above still work.
+    }
 
-      checkReady();
-      pollId = window.setInterval(checkReady, 150);
-    };
-
-    bind();
-
-    return () => {
-      cancelled = true;
-      if (pollId !== null) window.clearInterval(pollId);
-      if (bindRaf !== null) window.cancelAnimationFrame(bindRaf);
-      const v = videoRef.current;
-      if (v) {
-        v.onloadedmetadata = null;
-        v.onloadeddata = null;
-        v.oncanplay = null;
-        v.onplaying = null;
-        v.pause();
-        v.srcObject = null;
+    let lastError: unknown = null;
+    for (const constraint of constraints) {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia(constraint);
+          streamRef.current = stream;
+          if (!bindPreview(stream)) {
+            requestAnimationFrame(() => bindPreview(stream));
+          }
+          return;
+        } catch (err) {
+          lastError = err;
+          const name = (err as { name?: string })?.name;
+          if (name === "NotAllowedError" || name === "SecurityError") {
+            setNeedsPermission(true);
+            setError(getCameraErrorMessage(err));
+            return;
+          }
+          if (name === "NotReadableError" || name === "TrackStartError") {
+            await new Promise((resolve) => setTimeout(resolve, 500));
+          } else {
+            break;
+          }
+        }
       }
+    }
+
+    setError(getCameraErrorMessage(lastError));
+  }, [bindPreview, stopCamera]);
+
+  const handleDeviceCapture = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      stopCamera();
+      onCapture(reader.result as string);
     };
-  }, [stream]);
+    reader.readAsDataURL(file);
+    event.target.value = "";
+  };
+
+  useEffect(() => {
+    let mounted = true;
+
+    const checkPermissionAndStart = async () => {
+      try {
+        const status = await navigator.permissions?.query?.({ name: "camera" as PermissionName });
+        if (!mounted) return;
+        if (status?.state === "denied") {
+          setNeedsPermission(true);
+          setError(getCameraErrorMessage({ name: "NotAllowedError" }));
+          setChecking(false);
+          return;
+        }
+        if (status?.state === "prompt") {
+          setNeedsPermission(true);
+          setChecking(false);
+          return;
+        }
+      } catch {
+        // Permissions API is not available everywhere; fall back to requesting directly.
+      }
+      if (mounted) void startCamera();
+    };
+
+    void checkPermissionAndStart();
+    return () => {
+      mounted = false;
+      stopCamera();
+    };
+  }, [startCamera, stopCamera]);
 
   /**
    * captureImage(context, onImageCaptured) — ported from Kotlin.
@@ -132,7 +216,7 @@ export function LiveCameraScreen({ stream, error, onCapture, onClose, onRetry }:
       }
 
       // Preferred path: native ImageCapture (mirrors CameraX ImageCapture)
-      const track = stream?.getVideoTracks?.()[0];
+      const track = streamRef.current?.getVideoTracks?.()[0];
       const ImageCaptureCtor = (window as unknown as { ImageCapture?: new (t: MediaStreamTrack) => { takePhoto: () => Promise<Blob> } }).ImageCapture;
       if (track && ImageCaptureCtor) {
         try {
@@ -171,18 +255,62 @@ export function LiveCameraScreen({ stream, error, onCapture, onClose, onRetry }:
     }
   };
 
+  if (checking || (needsPermission && !error)) {
+    return (
+      <div className="fixed inset-0 z-[60] bg-black flex flex-col items-center justify-center p-6 text-center">
+        <input ref={deviceCaptureInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleDeviceCapture} />
+        <span className="text-5xl mb-4">📷</span>
+        <h2 className="text-primary-foreground text-lg font-bold mb-2">
+          {checking ? "Checking camera…" : "Allow Camera Access"}
+        </h2>
+        <p className="text-primary-foreground/70 text-sm mb-6 max-w-[280px]">
+          This app needs your permission to use the camera and capture a live plant photo.
+        </p>
+        {!checking && (
+          <div className="flex flex-col gap-3 w-full max-w-[240px]">
+            <button
+              onClick={() => void startCamera()}
+              className="px-5 py-2.5 rounded-full bg-green-dark text-primary-foreground text-sm font-bold"
+            >
+              Allow Camera
+            </button>
+            <button
+              onClick={() => deviceCaptureInputRef.current?.click()}
+              className="px-5 py-2.5 rounded-full bg-primary-foreground text-green-dark text-sm font-bold"
+            >
+              Open device camera
+            </button>
+            <button
+              onClick={onClose}
+              className="px-5 py-2.5 rounded-full text-primary-foreground/80 text-sm font-bold"
+            >
+              ← Go back
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   if (error) {
     return (
-      <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center p-6 text-center">
+      <div className="fixed inset-0 z-[60] bg-black flex flex-col items-center justify-center p-6 text-center">
+        <input ref={deviceCaptureInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleDeviceCapture} />
         <span className="text-5xl mb-4">📷</span>
         <h2 className="text-primary-foreground text-lg font-bold mb-2">Camera Access Needed</h2>
         <p className="text-primary-foreground/70 text-sm mb-6 max-w-[280px]">{error}</p>
         <div className="flex flex-col gap-3 w-full max-w-[240px]">
           <button
-            onClick={onRetry}
+            onClick={() => void startCamera()}
             className="px-5 py-2.5 rounded-full bg-green-dark text-primary-foreground text-sm font-bold"
           >
-            Try again
+            {needsPermission ? "Allow Camera" : "Try again"}
+          </button>
+          <button
+            onClick={() => deviceCaptureInputRef.current?.click()}
+            className="px-5 py-2.5 rounded-full bg-primary-foreground text-green-dark text-sm font-bold"
+          >
+            Open device camera
           </button>
           <button
             onClick={onClose}
@@ -196,7 +324,8 @@ export function LiveCameraScreen({ stream, error, onCapture, onClose, onRetry }:
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black flex flex-col">
+    <div className="fixed inset-0 z-[60] bg-black flex flex-col">
+      <input ref={deviceCaptureInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleDeviceCapture} />
       <div className="flex items-center justify-between px-4 pt-12 pb-3">
         <button onClick={onClose} className="w-11 h-11 rounded-full bg-white/15 flex items-center justify-center">
           <X size={22} className="text-white" />
