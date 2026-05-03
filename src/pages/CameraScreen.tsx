@@ -156,27 +156,41 @@ export default function CameraScreen() {
     let lastError: unknown = null;
 
     for (const constraints of attempts) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      // Retry each constraint up to 3 times for NotReadableError —
+      // the OS sometimes hasn't released the device from a previous request yet.
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia(constraints);
 
-        if (requestId !== cameraRequestIdRef.current) {
-          stream.getTracks().forEach((t) => t.stop());
+          if (requestId !== cameraRequestIdRef.current) {
+            stream.getTracks().forEach((t) => t.stop());
+            setRequestingPermission(false);
+            return;
+          }
+
+          streamRef.current = stream;
+          setCameraStream(stream);
+          setCameraError(null);
+          setShowPermissionPrompt(false);
+          setShowLiveCamera(true);
           setRequestingPermission(false);
           return;
+        } catch (error) {
+          lastError = error;
+          const name = (error as { name?: string })?.name;
+          if (name === "NotAllowedError" || name === "SecurityError") {
+            break;
+          }
+          if (name === "NotReadableError") {
+            // Wait briefly for the device to free up, then retry.
+            await new Promise((r) => setTimeout(r, 350));
+            continue;
+          }
+          break;
         }
-
-        streamRef.current = stream;
-        setCameraStream(stream);
-        setCameraError(null);
-        setShowPermissionPrompt(false);
-        setShowLiveCamera(true);
-        setRequestingPermission(false);
-        return;
-      } catch (error) {
-        lastError = error;
-        const name = (error as { name?: string })?.name;
-        if (name === "NotAllowedError" || name === "SecurityError") break;
       }
+      const name = (lastError as { name?: string })?.name;
+      if (name === "NotAllowedError" || name === "SecurityError") break;
     }
 
     if (requestId !== cameraRequestIdRef.current) {
