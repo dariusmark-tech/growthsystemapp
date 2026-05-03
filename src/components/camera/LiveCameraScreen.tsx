@@ -275,6 +275,12 @@ export function LiveCameraScreen({ onCapture, onClose }: LiveCameraScreenProps) 
               Allow Camera
             </button>
             <button
+              onClick={() => deviceCaptureInputRef.current?.click()}
+              className="px-5 py-2.5 rounded-full bg-primary-foreground text-green-dark text-sm font-bold"
+            >
+              Open device camera
+            </button>
+            <button
               onClick={onClose}
               className="px-5 py-2.5 rounded-full text-primary-foreground/80 text-sm font-bold"
             >
@@ -288,7 +294,7 @@ export function LiveCameraScreen({ onCapture, onClose }: LiveCameraScreenProps) 
 
   if (error) {
     return (
-      <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center p-6 text-center">
+      <div className="fixed inset-0 z-[60] bg-black flex flex-col items-center justify-center p-6 text-center">
         <input ref={deviceCaptureInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleDeviceCapture} />
         <span className="text-5xl mb-4">📷</span>
         <h2 className="text-primary-foreground text-lg font-bold mb-2">Camera Access Needed</h2>
