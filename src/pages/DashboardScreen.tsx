@@ -101,12 +101,12 @@ export default function DashboardScreen() {
           <h1 className="text-[28px] font-extrabold text-text-primary tracking-tight">Dashboard</h1>
         </div>
         <div className="flex items-center gap-2">
-          {alerts.length === 0 && bannerVisible && (
-            <div className="flex items-center gap-1.5 bg-green-light border border-border-high px-3 py-1.5 rounded-full animate-fade-in">
-              <div className="w-[7px] h-[7px] rounded-full bg-green animate-pulse" />
-              <span className="text-green-dark text-[11px] font-bold">All Optimal</span>
-            </div>
-          )}
+          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${connected ? 'bg-green-light border-border-high' : 'bg-danger-bg border-danger-border'}`}>
+            <div className={`w-[7px] h-[7px] rounded-full ${connected ? 'bg-green animate-pulse' : 'bg-danger'}`} />
+            <span className={`text-[10px] font-bold ${connected ? 'text-green-dark' : 'text-danger'}`}>
+              {connected ? 'Arduino Live' : 'Offline'}
+            </span>
+          </div>
           <LogoutButton />
         </div>
       </div>
