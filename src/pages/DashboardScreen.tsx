@@ -2,8 +2,9 @@ import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { AppCard, CardLabel, StatusBadge, SensorBar, AlertBanner } from "@/components/shared/SharedComponents";
 import { SensorLineChart } from "@/components/shared/SensorLineChart";
-import { getLatestReadings, OPTIMAL_RANGES, getSensorStatus, MOCK_MONITORING, type SensorReadings } from "@/utils/mockData";
+import { OPTIMAL_RANGES, getSensorStatus, MOCK_MONITORING, type SensorReadings } from "@/utils/mockData";
 import { computeAlerts } from "@/hooks/useSensorAlerts";
+import { useArduinoSensors } from "@/hooks/useArduinoSensors";
 import LogoutButton from "@/components/shared/LogoutButton";
 import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/logo.png";
@@ -35,7 +36,7 @@ function formatRelative(iso: string) {
 }
 
 export default function DashboardScreen() {
-  const [readings, setReadings] = useState<SensorReadings | null>(null);
+  const { readings, connected, lastUpdated, error: sensorError, loading } = useArduinoSensors();
   const [alerts, setAlerts] = useState<{ id: string; msg: string; type: 'warning' | 'danger' }[]>([]);
   const [bannerVisible, setBannerVisible] = useState(false);
   const [graphOpen, setGraphOpen] = useState(false);
@@ -43,15 +44,9 @@ export default function DashboardScreen() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
 
-  const loadData = useCallback(async () => {
-    try {
-      const data = await getLatestReadings();
-      setReadings(data);
-      setAlerts(computeAlerts(data));
-    } catch {
-      setAlerts([{ id: 'err', msg: '🔴 Could not reach backend. Showing cached data.', type: 'danger' }]);
-    }
-  }, []);
+  useEffect(() => {
+    if (readings) setAlerts(computeAlerts(readings));
+  }, [readings]);
 
   const loadHistory = useCallback(async () => {
     setHistoryLoading(true);
@@ -66,7 +61,7 @@ export default function DashboardScreen() {
     setHistoryLoading(false);
   }, []);
 
-  useEffect(() => { loadData(); loadHistory(); }, [loadData, loadHistory]);
+  useEffect(() => { loadHistory(); }, [loadHistory]);
 
   // Flash status banner once per login session, then auto-hide.
   useEffect(() => {
@@ -80,10 +75,19 @@ export default function DashboardScreen() {
     return () => clearTimeout(t);
   }, [readings]);
 
-  if (!readings) {
+  if (loading && !readings) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <p className="text-text-muted text-base">Loading…</p>
+        <p className="text-text-muted text-base">Connecting to Arduino…</p>
+      </div>
+    );
+  }
+
+  if (!readings) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center gap-2">
+        <p className="text-text-primary text-base font-bold">No Arduino data yet</p>
+        <p className="text-text-muted text-sm">{sensorError ?? "Waiting for ESP32 to push readings to Firebase…"}</p>
       </div>
     );
   }
@@ -97,12 +101,12 @@ export default function DashboardScreen() {
           <h1 className="text-[28px] font-extrabold text-text-primary tracking-tight">Dashboard</h1>
         </div>
         <div className="flex items-center gap-2">
-          {alerts.length === 0 && bannerVisible && (
-            <div className="flex items-center gap-1.5 bg-green-light border border-border-high px-3 py-1.5 rounded-full animate-fade-in">
-              <div className="w-[7px] h-[7px] rounded-full bg-green animate-pulse" />
-              <span className="text-green-dark text-[11px] font-bold">All Optimal</span>
-            </div>
-          )}
+          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${connected ? 'bg-green-light border-border-high' : 'bg-danger-bg border-danger-border'}`}>
+            <div className={`w-[7px] h-[7px] rounded-full ${connected ? 'bg-green animate-pulse' : 'bg-danger'}`} />
+            <span className={`text-[10px] font-bold ${connected ? 'text-green-dark' : 'text-danger'}`}>
+              {connected ? 'Arduino Live' : 'Offline'}
+            </span>
+          </div>
           <LogoutButton />
         </div>
       </div>
