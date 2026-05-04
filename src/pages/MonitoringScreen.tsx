@@ -1,15 +1,24 @@
 import { useState } from "react";
 import { AppCard, StatusBadge, SensorBar } from "@/components/shared/SharedComponents";
 import { SensorLineChart } from "@/components/shared/SensorLineChart";
-import { MOCK_READINGS, MOCK_MONITORING, OPTIMAL_RANGES, getSensorStatus } from "@/utils/mockData";
+import { MOCK_MONITORING, OPTIMAL_RANGES, getSensorStatus } from "@/utils/mockData";
+import { useArduinoSensors } from "@/hooks/useArduinoSensors";
 import { Settings, CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
 
 const TIME_RANGES = ['1h', '6h', '24h', '7d'];
 
 export default function MonitoringScreen() {
   const [timeRange, setTimeRange] = useState('6h');
+  const { readings, connected, loading, error: sensorError } = useArduinoSensors();
 
-  const readings = MOCK_READINGS;
+  if (!readings) {
+    return (
+      <div className="p-6 text-center">
+        <p className="text-text-primary font-bold mb-1">{loading ? "Connecting to Arduino…" : "No Arduino data"}</p>
+        <p className="text-text-muted text-xs">{sensorError ?? "Waiting for ESP32 readings…"}</p>
+      </div>
+    );
+  }
 
   const getStatusLabel = (key: string, value: number) => {
     const status = getSensorStatus(key, value);
