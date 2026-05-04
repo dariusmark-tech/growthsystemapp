@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { getLatestReadings, OPTIMAL_RANGES, type SensorReadings } from "@/utils/mockData";
+import { OPTIMAL_RANGES, type SensorReadings } from "@/utils/mockData";
+import { useArduinoSensors } from "@/hooks/useArduinoSensors";
 
 export interface SensorAlert {
   id: string;
@@ -20,25 +20,6 @@ export function computeAlerts(data: SensorReadings): SensorAlert[] {
 
 /** Lightweight global hook so the bottom nav can reflect sensor health. */
 export function useSensorAlerts() {
-  const [alerts, setAlerts] = useState<SensorAlert[]>([]);
-
-  useEffect(() => {
-    let active = true;
-    const load = async () => {
-      try {
-        const data = await getLatestReadings();
-        if (active) setAlerts(computeAlerts(data));
-      } catch {
-        /* ignore */
-      }
-    };
-    load();
-    const t = setInterval(load, 30_000);
-    return () => {
-      active = false;
-      clearInterval(t);
-    };
-  }, []);
-
-  return alerts;
+  const { readings } = useArduinoSensors();
+  return readings ? computeAlerts(readings) : [];
 }
