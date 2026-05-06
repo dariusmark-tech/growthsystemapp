@@ -78,8 +78,8 @@ export default function CameraScreen() {
   };
 
   const handleClassify = async () => {
-    if (!imageUri || !user) {
-      toast.error("Please sign in and add a photo first");
+    if (!imageUri) {
+      toast.error("Please add a photo first");
       return;
     }
     setClassifying(true);
@@ -105,7 +105,7 @@ export default function CameraScreen() {
       setResult(analysis);
       setClassified(true);
 
-      (async () => {
+      if (user) (async () => {
         const imageUrl = await uploadPhoto(imageUri);
         const { error: dbErr } = await supabase.from("plant_analyses").insert({
           user_id: user.id,
