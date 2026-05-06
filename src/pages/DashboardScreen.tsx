@@ -75,22 +75,13 @@ export default function DashboardScreen() {
     return () => clearTimeout(t);
   }, [readings]);
 
-  if (loading && !readings) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p className="text-text-muted text-base">Connecting to Arduino…</p>
-      </div>
-    );
-  }
-
-  if (!readings) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center gap-2">
-        <p className="text-text-primary text-base font-bold">No Arduino data yet</p>
-        <p className="text-text-muted text-sm">{sensorError ?? "Waiting for ESP32 to push readings to Firebase…"}</p>
-      </div>
-    );
-  }
+  const isLive = !!readings;
+  const data: SensorReadings = readings ?? {
+    temp: { s1: 0, s2: 0, s3: 0, avg: 0 },
+    humidity: 0,
+    ph: 0,
+    tds: 0,
+  };
 
   return (
     <div className="p-4 pb-10 no-scrollbar overflow-auto animate-fade-in">
@@ -118,6 +109,13 @@ export default function DashboardScreen() {
         </div>
       ))}
 
+      {!isLive && (
+        <AlertBanner
+          message={loading ? "Connecting to Arduino…" : (sensorError ?? "Arduino not connected — sensor values unavailable")}
+          type="warning"
+        />
+      )}
+
       {/* Temperature + Humidity Card */}
       <AppCard className="mb-3">
         {/* Temperature */}
@@ -125,19 +123,19 @@ export default function DashboardScreen() {
           <div className="flex-1 pr-2">
             <p className="text-[15px] font-bold text-text-primary mb-2">Temperature</p>
             <div className="flex gap-1.5">
-              {[readings.temp.s1, readings.temp.s2, readings.temp.s3].map((val, i) => (
+              {[data.temp.s1, data.temp.s2, data.temp.s3].map((val, i) => (
                 <div key={i} className="flex items-center gap-1 bg-card-alt rounded-md px-[7px] py-[3px] border border-border">
                   <div className="w-[5px] h-[5px] rounded-full" style={{
-                    backgroundColor: getSensorStatus('temp', val) === 'success' ? 'hsl(var(--green))' : 'hsl(var(--chart-amber))'
+                    backgroundColor: isLive && getSensorStatus('temp', val) === 'success' ? 'hsl(var(--green))' : 'hsl(var(--chart-amber))'
                   }} />
-                  <span className="text-[11px] text-text-muted font-semibold">S{i + 1} {val}°</span>
+                  <span className="text-[11px] text-text-muted font-semibold">S{i + 1} {isLive ? `${val}°` : "—"}</span>
                 </div>
               ))}
             </div>
           </div>
           <div className="text-right">
             <span className="text-[30px] font-extrabold text-text-primary tracking-tight">
-              {readings.temp.avg}<span className="text-sm font-normal text-text-faint">°C</span>
+              {isLive ? data.temp.avg : "—"}<span className="text-sm font-normal text-text-faint">°C</span>
             </span>
             <p className="text-[11px] text-text-muted mt-0.5">avg.</p>
           </div>
@@ -150,15 +148,15 @@ export default function DashboardScreen() {
           <div className="flex-1 pr-2">
             <p className="text-[15px] font-bold text-text-primary mb-2">Humidity</p>
             <SensorBar
-              value={readings.humidity}
+              value={data.humidity}
               max={100}
-              color={getSensorStatus('humidity', readings.humidity) === 'success' ? 'hsl(var(--green))' : 'hsl(var(--chart-amber))'}
+              color={getSensorStatus('humidity', data.humidity) === 'success' ? 'hsl(var(--green))' : 'hsl(var(--chart-amber))'}
               className="w-[90%]"
             />
           </div>
           <div className="text-right">
             <span className="text-[30px] font-extrabold text-text-primary tracking-tight">
-              {readings.humidity}<span className="text-sm font-normal text-text-faint">%</span>
+              {isLive ? data.humidity : "—"}<span className="text-sm font-normal text-text-faint">%</span>
             </span>
             <p className="text-[11px] text-text-muted mt-0.5">avg.</p>
           </div>
@@ -269,7 +267,7 @@ export default function DashboardScreen() {
                 <div className="bg-background rounded-[14px] border border-border p-4">
                   <div className="flex justify-between items-center mb-3">
                     <span className="text-[11px] font-extrabold text-text-muted tracking-[1.5px]">TEMPERATURE</span>
-                    <StatusBadge label={`${readings.temp.avg}°C avg`} type="success" size="sm" />
+                    <StatusBadge label={`${data.temp.avg}°C avg`} type="success" size="sm" />
                   </div>
                   <SensorLineChart
                     data={MOCK_MONITORING.tempHistory}
@@ -279,9 +277,9 @@ export default function DashboardScreen() {
                   />
                   <div className="flex gap-2 mt-3.5">
                     {[
-                      { label: 'Sensor 1', val: readings.temp.s1 },
-                      { label: 'Sensor 2', val: readings.temp.s2 },
-                      { label: 'Sensor 3', val: readings.temp.s3 },
+                      { label: 'Sensor 1', val: data.temp.s1 },
+                      { label: 'Sensor 2', val: data.temp.s2 },
+                      { label: 'Sensor 3', val: data.temp.s3 },
                     ].map((sr, i) => (
                       <div key={i} className="flex-1 flex flex-col items-center bg-card-alt rounded-lg py-2.5 border border-border">
                         <div className="w-2 h-2 rounded-full mb-1.5" style={{
@@ -298,7 +296,7 @@ export default function DashboardScreen() {
                 <div className="bg-background rounded-[14px] border border-border p-4">
                   <div className="flex justify-between items-center mb-3">
                     <span className="text-[11px] font-extrabold text-text-muted tracking-[1.5px]">HUMIDITY</span>
-                    <StatusBadge label={`${readings.humidity}%`} type="success" size="sm" />
+                    <StatusBadge label={`${data.humidity}%`} type="success" size="sm" />
                   </div>
                   <SensorLineChart
                     data={MOCK_MONITORING.humidityHistory}
@@ -308,7 +306,7 @@ export default function DashboardScreen() {
                   />
                   <div className="flex gap-2 mt-3 mb-3">
                     {[
-                      { label: 'Current', val: `${readings.humidity}%` },
+                      { label: 'Current', val: `${data.humidity}%` },
                       { label: 'Status', val: 'Optimal', isGreen: true },
                       { label: 'Target', val: '55–75%' },
                     ].map(({ label, val, isGreen }) => (
@@ -318,7 +316,7 @@ export default function DashboardScreen() {
                       </div>
                     ))}
                   </div>
-                  <SensorBar value={readings.humidity} max={100} />
+                  <SensorBar value={data.humidity} max={100} />
                   <p className="text-[10px] text-text-faint mt-2.5 text-right">Optimal range: 55–75 %</p>
                 </div>
               )}

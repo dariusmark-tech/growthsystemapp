@@ -9,20 +9,19 @@ const TIME_RANGES = ['1h', '6h', '24h', '7d'];
 
 export default function MonitoringScreen() {
   const [timeRange, setTimeRange] = useState('6h');
-  const { readings, connected, loading, error: sensorError } = useArduinoSensors();
-
-  if (!readings) {
-    return (
-      <div className="p-6 text-center">
-        <p className="text-text-primary font-bold mb-1">{loading ? "Connecting to Arduino…" : "No Arduino data"}</p>
-        <p className="text-text-muted text-xs">{sensorError ?? "Waiting for ESP32 readings…"}</p>
-      </div>
-    );
-  }
+  const { readings, connected, loading } = useArduinoSensors();
+  const isLive = !!readings;
+  const data = readings ?? {
+    temp: { s1: 0, s2: 0, s3: 0, avg: 0 },
+    humidity: 0,
+    ph: 0,
+    tds: 0,
+  };
+  const fmt = (v: number, suffix = "") => (isLive ? `${v}${suffix}` : "—");
 
   const getStatusLabel = (key: string, value: number) => {
+    if (!isLive) return "NO DATA";
     const status = getSensorStatus(key, value);
-    const r = OPTIMAL_RANGES[key as keyof typeof OPTIMAL_RANGES];
     return status === 'success' ? `OPTIMAL · ${value}${key === 'temp' ? '°C' : key === 'humidity' ? '%' : ''} avg` : `WARNING · ${value}`;
   };
 
@@ -38,6 +37,14 @@ export default function MonitoringScreen() {
           <Settings size={16} className="text-text-muted" />
         </button>
       </div>
+
+      {!isLive && (
+        <div className="mt-3 mb-1 px-3 py-2 rounded-lg bg-danger-bg border border-danger-border">
+          <p className="text-[12px] font-bold text-danger">
+            {loading ? "Connecting to Arduino…" : "Arduino not connected — sensor values unavailable"}
+          </p>
+        </div>
+      )}
 
       {/* Time Range Chips */}
       <div className="flex gap-1.5 my-4">
@@ -63,14 +70,14 @@ export default function MonitoringScreen() {
             <span className="text-base">🌡️</span>
             <span className="text-[13px] font-bold text-text-primary uppercase tracking-wide">Temperature</span>
           </div>
-          <StatusBadge label={getStatusLabel('temp', readings.temp.avg)} type="success" size="sm" />
+          <StatusBadge label={getStatusLabel('temp', data.temp.avg)} type="success" size="sm" />
         </div>
 
         {/* Sensor rows */}
         {[
-          { label: 'Sensor 1', val: readings.temp.s1 },
-          { label: 'Sensor 2', val: readings.temp.s2 },
-          { label: 'Sensor 3', val: readings.temp.s3 },
+          { label: 'Sensor 1', val: data.temp.s1 },
+          { label: 'Sensor 2', val: data.temp.s2 },
+          { label: 'Sensor 3', val: data.temp.s3 },
         ].map(({ label, val }) => {
           const status = getSensorStatus('temp', val);
           const Icon = status === 'success' ? CheckCircle2 : status === 'warning' ? AlertTriangle : XCircle;
@@ -83,8 +90,8 @@ export default function MonitoringScreen() {
             <div key={label} className="flex justify-between items-center py-2.5 border-b border-border/50 last:border-0 transition-colors hover:bg-card-alt/40">
               <span className="text-[13px] text-text-muted">{label}</span>
               <div className="flex items-center gap-2">
-                <span className="text-[13px] font-bold text-text-primary">{val} °C</span>
-                <Icon size={14} style={{ color }} strokeWidth={2.5} />
+                <span className="text-[13px] font-bold text-text-primary">{isLive ? `${val} °C` : "—"}</span>
+                {isLive && <Icon size={14} style={{ color }} strokeWidth={2.5} />}
               </div>
             </div>
           );
@@ -92,7 +99,7 @@ export default function MonitoringScreen() {
 
         <div className="flex justify-between items-center pt-3 mt-1 border-t border-border">
           <span className="text-[13px] font-bold text-green">Average</span>
-          <span className="text-[13px] font-bold text-text-primary">{readings.temp.avg} °C</span>
+          <span className="text-[13px] font-bold text-text-primary">{isLive ? `${data.temp.avg} °C` : "—"}</span>
         </div>
 
         {/* Range bar */}
@@ -100,7 +107,7 @@ export default function MonitoringScreen() {
           <div className="relative h-2 rounded-full overflow-hidden bg-gradient-to-r from-chart-blue via-green to-danger">
             <div
               className="absolute top-0 w-3 h-full bg-foreground rounded-full border-2 border-card"
-              style={{ left: `${((readings.temp.avg - 0) / 40) * 100}%`, transform: 'translateX(-50%)' }}
+              style={{ left: `${((data.temp.avg - 0) / 40) * 100}%`, transform: 'translateX(-50%)' }}
             />
           </div>
           <div className="flex justify-between mt-1">
@@ -130,15 +137,15 @@ export default function MonitoringScreen() {
             <span className="text-base">💧</span>
             <span className="text-[13px] font-bold text-text-primary uppercase tracking-wide">Humidity</span>
           </div>
-          <StatusBadge label="OPTIMAL" type="success" size="sm" />
+          <StatusBadge label={isLive ? "OPTIMAL" : "NO DATA"} type="success" size="sm" />
         </div>
 
         <p className="text-[32px] font-extrabold text-text-primary tracking-tight">
-          {readings.humidity}<span className="text-sm font-normal text-text-faint">%</span>
+          {isLive ? data.humidity : "—"}<span className="text-sm font-normal text-text-faint">%</span>
         </p>
 
-        <SensorBar value={readings.humidity} max={100} className="mt-2 mb-1" />
-        <p className="text-[10px] text-text-faint">Filling: {readings.humidity}% — Target: 55–75%</p>
+        <SensorBar value={isLive ? data.humidity : 0} max={100} className="mt-2 mb-1" />
+        <p className="text-[10px] text-text-faint">Filling: {isLive ? `${data.humidity}%` : "—"} — Target: 55–75%</p>
 
         <div className="mt-4">
           <SensorLineChart
@@ -158,16 +165,16 @@ export default function MonitoringScreen() {
             <span className="text-base">🧪</span>
             <span className="text-[13px] font-bold text-text-primary uppercase tracking-wide">pH Level</span>
           </div>
-          <StatusBadge label="OPTIMAL" type="success" size="sm" />
+          <StatusBadge label={isLive ? "OPTIMAL" : "NO DATA"} type="success" size="sm" />
         </div>
 
-        <p className="text-[32px] font-extrabold text-text-primary tracking-tight">{readings.ph}</p>
+        <p className="text-[32px] font-extrabold text-text-primary tracking-tight">{isLive ? data.ph : "—"}</p>
 
         {/* pH Scale */}
         <div className="flex gap-0.5 mt-3">
           {Array.from({ length: 14 }, (_, i) => {
             const val = i + 1;
-            const isActive = Math.round(readings.ph) === val;
+            const isActive = isLive && Math.round(data.ph) === val;
             const colors = [
               'bg-danger', 'bg-danger', 'bg-chart-amber', 'bg-chart-amber',
               'bg-warning', 'bg-green', 'bg-green', 'bg-green',
