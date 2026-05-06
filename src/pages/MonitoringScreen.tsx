@@ -62,14 +62,14 @@ export default function MonitoringScreen() {
             <span className="text-base">🌡️</span>
             <span className="text-[13px] font-bold text-text-primary uppercase tracking-wide">Temperature</span>
           </div>
-          <StatusBadge label={getStatusLabel('temp', readings.temp.avg)} type="success" size="sm" />
+          <StatusBadge label={getStatusLabel('temp', data.temp.avg)} type="success" size="sm" />
         </div>
 
         {/* Sensor rows */}
         {[
-          { label: 'Sensor 1', val: readings.temp.s1 },
-          { label: 'Sensor 2', val: readings.temp.s2 },
-          { label: 'Sensor 3', val: readings.temp.s3 },
+          { label: 'Sensor 1', val: data.temp.s1 },
+          { label: 'Sensor 2', val: data.temp.s2 },
+          { label: 'Sensor 3', val: data.temp.s3 },
         ].map(({ label, val }) => {
           const status = getSensorStatus('temp', val);
           const Icon = status === 'success' ? CheckCircle2 : status === 'warning' ? AlertTriangle : XCircle;
@@ -91,7 +91,7 @@ export default function MonitoringScreen() {
 
         <div className="flex justify-between items-center pt-3 mt-1 border-t border-border">
           <span className="text-[13px] font-bold text-green">Average</span>
-          <span className="text-[13px] font-bold text-text-primary">{readings.temp.avg} °C</span>
+          <span className="text-[13px] font-bold text-text-primary">{data.temp.avg} °C</span>
         </div>
 
         {/* Range bar */}
@@ -99,7 +99,7 @@ export default function MonitoringScreen() {
           <div className="relative h-2 rounded-full overflow-hidden bg-gradient-to-r from-chart-blue via-green to-danger">
             <div
               className="absolute top-0 w-3 h-full bg-foreground rounded-full border-2 border-card"
-              style={{ left: `${((readings.temp.avg - 0) / 40) * 100}%`, transform: 'translateX(-50%)' }}
+              style={{ left: `${((data.temp.avg - 0) / 40) * 100}%`, transform: 'translateX(-50%)' }}
             />
           </div>
           <div className="flex justify-between mt-1">
@@ -133,11 +133,11 @@ export default function MonitoringScreen() {
         </div>
 
         <p className="text-[32px] font-extrabold text-text-primary tracking-tight">
-          {readings.humidity}<span className="text-sm font-normal text-text-faint">%</span>
+          {data.humidity}<span className="text-sm font-normal text-text-faint">%</span>
         </p>
 
-        <SensorBar value={readings.humidity} max={100} className="mt-2 mb-1" />
-        <p className="text-[10px] text-text-faint">Filling: {readings.humidity}% — Target: 55–75%</p>
+        <SensorBar value={data.humidity} max={100} className="mt-2 mb-1" />
+        <p className="text-[10px] text-text-faint">Filling: {data.humidity}% — Target: 55–75%</p>
 
         <div className="mt-4">
           <SensorLineChart
@@ -160,13 +160,13 @@ export default function MonitoringScreen() {
           <StatusBadge label="OPTIMAL" type="success" size="sm" />
         </div>
 
-        <p className="text-[32px] font-extrabold text-text-primary tracking-tight">{readings.ph}</p>
+        <p className="text-[32px] font-extrabold text-text-primary tracking-tight">{data.ph}</p>
 
         {/* pH Scale */}
         <div className="flex gap-0.5 mt-3">
           {Array.from({ length: 14 }, (_, i) => {
             const val = i + 1;
-            const isActive = Math.round(readings.ph) === val;
+            const isActive = Math.round(data.ph) === val;
             const colors = [
               'bg-danger', 'bg-danger', 'bg-chart-amber', 'bg-chart-amber',
               'bg-warning', 'bg-green', 'bg-green', 'bg-green',
