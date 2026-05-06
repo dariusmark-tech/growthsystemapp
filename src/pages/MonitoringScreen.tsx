@@ -99,7 +99,7 @@ export default function MonitoringScreen() {
 
         <div className="flex justify-between items-center pt-3 mt-1 border-t border-border">
           <span className="text-[13px] font-bold text-green">Average</span>
-          <span className="text-[13px] font-bold text-text-primary">{data.temp.avg} °C</span>
+          <span className="text-[13px] font-bold text-text-primary">{isLive ? `${data.temp.avg} °C` : "—"}</span>
         </div>
 
         {/* Range bar */}
