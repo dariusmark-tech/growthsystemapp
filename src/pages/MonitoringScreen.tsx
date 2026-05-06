@@ -20,8 +20,8 @@ export default function MonitoringScreen() {
   const fmt = (v: number, suffix = "") => (isLive ? `${v}${suffix}` : "—");
 
   const getStatusLabel = (key: string, value: number) => {
+    if (!isLive) return "NO DATA";
     const status = getSensorStatus(key, value);
-    const r = OPTIMAL_RANGES[key as keyof typeof OPTIMAL_RANGES];
     return status === 'success' ? `OPTIMAL · ${value}${key === 'temp' ? '°C' : key === 'humidity' ? '%' : ''} avg` : `WARNING · ${value}`;
   };
 
