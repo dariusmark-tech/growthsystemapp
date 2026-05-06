@@ -109,6 +109,13 @@ export default function DashboardScreen() {
         </div>
       ))}
 
+      {!isLive && (
+        <AlertBanner
+          message={loading ? "Connecting to Arduino…" : (sensorError ?? "Arduino not connected — sensor values unavailable")}
+          type="warning"
+        />
+      )}
+
       {/* Temperature + Humidity Card */}
       <AppCard className="mb-3">
         {/* Temperature */}
