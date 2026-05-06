@@ -75,22 +75,13 @@ export default function DashboardScreen() {
     return () => clearTimeout(t);
   }, [readings]);
 
-  if (loading && !readings) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p className="text-text-muted text-base">Connecting to Arduino…</p>
-      </div>
-    );
-  }
-
-  if (!readings) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center gap-2">
-        <p className="text-text-primary text-base font-bold">No Arduino data yet</p>
-        <p className="text-text-muted text-sm">{sensorError ?? "Waiting for ESP32 to push readings to Firebase…"}</p>
-      </div>
-    );
-  }
+  const isLive = !!readings;
+  const data: SensorReadings = readings ?? {
+    temp: { s1: 0, s2: 0, s3: 0, avg: 0 },
+    humidity: 0,
+    ph: 0,
+    tds: 0,
+  };
 
   return (
     <div className="p-4 pb-10 no-scrollbar overflow-auto animate-fade-in">
