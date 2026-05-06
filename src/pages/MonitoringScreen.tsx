@@ -120,12 +120,13 @@ export default function MonitoringScreen() {
 
         {/* Temperature trend */}
         <div className="mt-4">
-          <SensorLineChart
-            data={MOCK_MONITORING.tempHistory}
-            color="hsl(152,55%,28%)"
-            yLabel="Temperature"
-            unit="°C"
-          />
+          {history.temp.length > 1 ? (
+            <SensorLineChart data={history.temp} color="hsl(152,55%,28%)" yLabel="Temperature" unit="°C" />
+          ) : (
+            <div className="h-[180px] flex items-center justify-center text-text-muted text-xs">
+              {connected ? 'Collecting Arduino samples…' : 'Waiting for Arduino…'}
+            </div>
+          )}
           <p className="text-[10px] text-text-faint text-center -mt-1">Temperature vs. Time</p>
         </div>
       </AppCard>
@@ -148,12 +149,13 @@ export default function MonitoringScreen() {
         <p className="text-[10px] text-text-faint">Filling: {isLive ? `${data.humidity}%` : "—"} — Target: 55–75%</p>
 
         <div className="mt-4">
-          <SensorLineChart
-            data={MOCK_MONITORING.humidityHistory}
-            color="hsl(152,60%,42%)"
-            yLabel="Humidity"
-            unit="%"
-          />
+          {history.humidity.length > 1 ? (
+            <SensorLineChart data={history.humidity} color="hsl(152,60%,42%)" yLabel="Humidity" unit="%" />
+          ) : (
+            <div className="h-[180px] flex items-center justify-center text-text-muted text-xs">
+              {connected ? 'Collecting Arduino samples…' : 'Waiting for Arduino…'}
+            </div>
+          )}
           <p className="text-[10px] text-text-faint text-center -mt-1">Humidity vs. Time</p>
         </div>
       </AppCard>
