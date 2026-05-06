@@ -165,16 +165,16 @@ export default function MonitoringScreen() {
             <span className="text-base">🧪</span>
             <span className="text-[13px] font-bold text-text-primary uppercase tracking-wide">pH Level</span>
           </div>
-          <StatusBadge label="OPTIMAL" type="success" size="sm" />
+          <StatusBadge label={isLive ? "OPTIMAL" : "NO DATA"} type="success" size="sm" />
         </div>
 
-        <p className="text-[32px] font-extrabold text-text-primary tracking-tight">{data.ph}</p>
+        <p className="text-[32px] font-extrabold text-text-primary tracking-tight">{isLive ? data.ph : "—"}</p>
 
         {/* pH Scale */}
         <div className="flex gap-0.5 mt-3">
           {Array.from({ length: 14 }, (_, i) => {
             const val = i + 1;
-            const isActive = Math.round(data.ph) === val;
+            const isActive = isLive && Math.round(data.ph) === val;
             const colors = [
               'bg-danger', 'bg-danger', 'bg-chart-amber', 'bg-chart-amber',
               'bg-warning', 'bg-green', 'bg-green', 'bg-green',
