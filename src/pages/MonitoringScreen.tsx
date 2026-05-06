@@ -90,8 +90,9 @@ export default function MonitoringScreen() {
             <div key={label} className="flex justify-between items-center py-2.5 border-b border-border/50 last:border-0 transition-colors hover:bg-card-alt/40">
               <span className="text-[13px] text-text-muted">{label}</span>
               <div className="flex items-center gap-2">
-                <span className="text-[13px] font-bold text-text-primary">{val} °C</span>
-                <Icon size={14} style={{ color }} strokeWidth={2.5} />
+                <span className="text-[13px] font-bold text-text-primary">{isLive ? `${val} °C` : "—"}</span>
+                {isLive && <Icon size={14} style={{ color }} strokeWidth={2.5} />}
+              </div>
               </div>
             </div>
           );
