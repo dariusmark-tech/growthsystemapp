@@ -137,15 +137,15 @@ export default function MonitoringScreen() {
             <span className="text-base">💧</span>
             <span className="text-[13px] font-bold text-text-primary uppercase tracking-wide">Humidity</span>
           </div>
-          <StatusBadge label="OPTIMAL" type="success" size="sm" />
+          <StatusBadge label={isLive ? "OPTIMAL" : "NO DATA"} type="success" size="sm" />
         </div>
 
         <p className="text-[32px] font-extrabold text-text-primary tracking-tight">
-          {data.humidity}<span className="text-sm font-normal text-text-faint">%</span>
+          {isLive ? data.humidity : "—"}<span className="text-sm font-normal text-text-faint">%</span>
         </p>
 
-        <SensorBar value={data.humidity} max={100} className="mt-2 mb-1" />
-        <p className="text-[10px] text-text-faint">Filling: {data.humidity}% — Target: 55–75%</p>
+        <SensorBar value={isLive ? data.humidity : 0} max={100} className="mt-2 mb-1" />
+        <p className="text-[10px] text-text-faint">Filling: {isLive ? `${data.humidity}%` : "—"} — Target: 55–75%</p>
 
         <div className="mt-4">
           <SensorLineChart
