@@ -119,9 +119,9 @@ export default function DashboardScreen() {
               {[data.temp.s1, data.temp.s2, data.temp.s3].map((val, i) => (
                 <div key={i} className="flex items-center gap-1 bg-card-alt rounded-md px-[7px] py-[3px] border border-border">
                   <div className="w-[5px] h-[5px] rounded-full" style={{
-                    backgroundColor: getSensorStatus('temp', val) === 'success' ? 'hsl(var(--green))' : 'hsl(var(--chart-amber))'
+                    backgroundColor: isLive && getSensorStatus('temp', val) === 'success' ? 'hsl(var(--green))' : 'hsl(var(--chart-amber))'
                   }} />
-                  <span className="text-[11px] text-text-muted font-semibold">S{i + 1} {val}°</span>
+                  <span className="text-[11px] text-text-muted font-semibold">S{i + 1} {isLive ? `${val}°` : "—"}</span>
                 </div>
               ))}
             </div>
