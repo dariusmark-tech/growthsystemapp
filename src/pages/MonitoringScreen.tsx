@@ -38,6 +38,14 @@ export default function MonitoringScreen() {
         </button>
       </div>
 
+      {!isLive && (
+        <div className="mt-3 mb-1 px-3 py-2 rounded-lg bg-danger-bg border border-danger-border">
+          <p className="text-[12px] font-bold text-danger">
+            {loading ? "Connecting to Arduino…" : "Arduino not connected — sensor values unavailable"}
+          </p>
+        </div>
+      )}
+
       {/* Time Range Chips */}
       <div className="flex gap-1.5 my-4">
         {TIME_RANGES.map(r => (
