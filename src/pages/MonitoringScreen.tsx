@@ -93,7 +93,6 @@ export default function MonitoringScreen() {
                 <span className="text-[13px] font-bold text-text-primary">{isLive ? `${val} °C` : "—"}</span>
                 {isLive && <Icon size={14} style={{ color }} strokeWidth={2.5} />}
               </div>
-              </div>
             </div>
           );
         })}
