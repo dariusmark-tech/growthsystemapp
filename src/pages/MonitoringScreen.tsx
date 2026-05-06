@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { AppCard, StatusBadge, SensorBar } from "@/components/shared/SharedComponents";
 import { SensorLineChart } from "@/components/shared/SensorLineChart";
-import { MOCK_MONITORING, OPTIMAL_RANGES, getSensorStatus } from "@/utils/mockData";
+import { getSensorStatus } from "@/utils/mockData";
 import { useArduinoSensors } from "@/hooks/useArduinoSensors";
 import { Settings, CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
 
@@ -9,7 +9,7 @@ const TIME_RANGES = ['1h', '6h', '24h', '7d'];
 
 export default function MonitoringScreen() {
   const [timeRange, setTimeRange] = useState('6h');
-  const { readings, connected, loading } = useArduinoSensors();
+  const { readings, connected, loading, history } = useArduinoSensors();
   const isLive = !!readings;
   const data = readings ?? {
     temp: { s1: 0, s2: 0, s3: 0, avg: 0 },
