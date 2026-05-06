@@ -2,12 +2,14 @@ import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { AppCard, CardLabel, StatusBadge, SensorBar, AlertBanner } from "@/components/shared/SharedComponents";
 import { SensorLineChart } from "@/components/shared/SensorLineChart";
-import { OPTIMAL_RANGES, getSensorStatus, MOCK_MONITORING, type SensorReadings } from "@/utils/mockData";
+import LogoLoader from "@/components/shared/LogoLoader";
+import { getSensorStatus, type SensorReadings } from "@/utils/mockData";
 import { computeAlerts } from "@/hooks/useSensorAlerts";
 import { useArduinoSensors } from "@/hooks/useArduinoSensors";
-import LogoutButton from "@/components/shared/LogoutButton";
 import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/logo.png";
+import { FullDetailsPage } from "@/components/camera/FullDetailsPage";
+import type { PlantAnalysis } from "@/components/camera/types";
 
 const BANNER_TIMEOUT_MS = 5000;
 const BANNER_FLASH_KEY = "growth_banner_flashed";
@@ -21,6 +23,8 @@ interface HistoryItem {
   harvest_date: string | null;
   image_url: string | null;
   created_at: string;
+  nutrients?: any;
+  raw_response?: any;
 }
 
 function formatRelative(iso: string) {
@@ -35,14 +39,28 @@ function formatRelative(iso: string) {
   return new Date(iso).toLocaleDateString();
 }
 
+function historyToAnalysis(item: HistoryItem): PlantAnalysis {
+  const raw = item.raw_response as PlantAnalysis | undefined;
+  if (raw && raw.plantName) return raw;
+  return {
+    plantName: item.plant_name,
+    stage: item.stage as PlantAnalysis["stage"],
+    confidence: (item.confidence ?? {}) as PlantAnalysis["confidence"],
+    daysToNext: item.days_to_next ?? 0,
+    harvestDate: item.harvest_date ?? "",
+    nutrients: (item.nutrients ?? []) as PlantAnalysis["nutrients"],
+  };
+}
+
 export default function DashboardScreen() {
-  const { readings, connected, lastUpdated, error: sensorError, loading } = useArduinoSensors();
+  const { readings, connected, error: sensorError, loading, history } = useArduinoSensors();
   const [alerts, setAlerts] = useState<{ id: string; msg: string; type: 'warning' | 'danger' }[]>([]);
   const [bannerVisible, setBannerVisible] = useState(false);
   const [graphOpen, setGraphOpen] = useState(false);
   const [graphTab, setGraphTab] = useState(0);
-  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
+  const [selectedItem, setSelectedItem] = useState<HistoryItem | null>(null);
 
   useEffect(() => {
     if (readings) setAlerts(computeAlerts(readings));
@@ -52,18 +70,15 @@ export default function DashboardScreen() {
     setHistoryLoading(true);
     const { data, error } = await supabase
       .from('plant_analyses')
-      .select('id, plant_name, stage, confidence, days_to_next, harvest_date, image_url, created_at')
+      .select('id, plant_name, stage, confidence, days_to_next, harvest_date, image_url, created_at, nutrients, raw_response')
       .order('created_at', { ascending: false })
-      .limit(5);
-    if (!error && data) {
-      setHistory(data as unknown as HistoryItem[]);
-    }
+      .limit(8);
+    if (!error && data) setHistoryItems(data as unknown as HistoryItem[]);
     setHistoryLoading(false);
   }, []);
 
   useEffect(() => { loadHistory(); }, [loadHistory]);
 
-  // Flash status banner once per login session, then auto-hide.
   useEffect(() => {
     if (!readings) return;
     if (sessionStorage.getItem(BANNER_FLASH_KEY) === '1') return;
@@ -83,6 +98,16 @@ export default function DashboardScreen() {
     tds: 0,
   };
 
+  if (selectedItem) {
+    return (
+      <FullDetailsPage
+        result={historyToAnalysis(selectedItem)}
+        imageUri={selectedItem.image_url}
+        onBack={() => setSelectedItem(null)}
+      />
+    );
+  }
+
   return (
     <div className="p-4 pb-10 no-scrollbar overflow-auto animate-fade-in">
       {/* Header */}
@@ -91,18 +116,14 @@ export default function DashboardScreen() {
           <img src={logo} alt="G.R.O.W.T.H." className="w-9 h-9 object-contain" />
           <h1 className="text-[28px] font-extrabold text-text-primary tracking-tight">Dashboard</h1>
         </div>
-        <div className="flex items-center gap-2">
-          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${connected ? 'bg-green-light border-border-high' : 'bg-danger-bg border-danger-border'}`}>
-            <div className={`w-[7px] h-[7px] rounded-full ${connected ? 'bg-green animate-pulse' : 'bg-danger'}`} />
-            <span className={`text-[10px] font-bold ${connected ? 'text-green-dark' : 'text-danger'}`}>
-              {connected ? 'Arduino Live' : 'Offline'}
-            </span>
-          </div>
-          <LogoutButton />
+        <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${connected ? 'bg-green-light border-border-high' : 'bg-danger-bg border-danger-border'}`}>
+          <div className={`w-[7px] h-[7px] rounded-full ${connected ? 'bg-green animate-pulse' : 'bg-danger'}`} />
+          <span className={`text-[10px] font-bold ${connected ? 'text-green-dark' : 'text-danger'}`}>
+            {connected ? 'Arduino Live' : 'Offline'}
+          </span>
         </div>
       </div>
 
-      {/* Alerts — flash once per login then auto-dismiss */}
       {bannerVisible && alerts.map(a => (
         <div key={a.id} className="animate-fade-in">
           <AlertBanner message={a.msg} type={a.type} />
@@ -118,7 +139,6 @@ export default function DashboardScreen() {
 
       {/* Temperature + Humidity Card */}
       <AppCard className="mb-3">
-        {/* Temperature */}
         <button className="flex items-center justify-between w-full py-3" onClick={() => { setGraphTab(0); setGraphOpen(true); }}>
           <div className="flex-1 pr-2">
             <p className="text-[15px] font-bold text-text-primary mb-2">Temperature</p>
@@ -143,7 +163,6 @@ export default function DashboardScreen() {
 
         <div className="h-px bg-border -mx-4" />
 
-        {/* Humidity */}
         <button className="flex items-center justify-between w-full py-3" onClick={() => { setGraphTab(1); setGraphOpen(true); }}>
           <div className="flex-1 pr-2">
             <p className="text-[15px] font-bold text-text-primary mb-2">Humidity</p>
@@ -162,7 +181,6 @@ export default function DashboardScreen() {
           </div>
         </button>
 
-        {/* Graph button */}
         <div className="flex justify-end mt-3">
           <button
             className="flex items-center gap-1.5 px-4 py-2 rounded-full border border-green-dark bg-green-light text-green-dark text-[13px] font-bold"
@@ -181,8 +199,8 @@ export default function DashboardScreen() {
         </div>
 
         {historyLoading ? (
-          <p className="text-text-muted text-sm py-4 text-center">Loading…</p>
-        ) : history.length === 0 ? (
+          <div className="py-4"><LogoLoader size={36} label="Loading…" /></div>
+        ) : historyItems.length === 0 ? (
           <div className="py-6 text-center">
             <p className="text-text-muted text-sm mb-2">No classifications yet.</p>
             <Link to="/camera" className="inline-block text-green-dark text-[13px] font-bold underline">
@@ -191,12 +209,13 @@ export default function DashboardScreen() {
           </div>
         ) : (
           <div className="flex flex-col gap-2">
-            {history.map((item) => {
+            {historyItems.map((item) => {
               const conf = item.confidence?.[item.stage] ?? 0;
               return (
-                <div
+                <button
                   key={item.id}
-                  className="flex items-center gap-3 p-2.5 rounded-lg border border-border bg-card-alt"
+                  onClick={() => setSelectedItem(item)}
+                  className="flex items-center gap-3 p-2.5 rounded-lg border border-border bg-card-alt text-left hover:bg-green-light/40 transition-colors"
                 >
                   {item.image_url ? (
                     <img
@@ -218,7 +237,7 @@ export default function DashboardScreen() {
                     </p>
                   </div>
                   <StatusBadge label={`${Math.round(conf)}%`} type="success" size="sm" />
-                </div>
+                </button>
               );
             })}
           </div>
@@ -236,7 +255,6 @@ export default function DashboardScreen() {
           >
             <div className="w-10 h-1 bg-border rounded-full mx-auto mt-2.5 mb-1" />
 
-            {/* Header */}
             <div className="flex items-center justify-between py-3 border-b border-border mb-3.5">
               <button className="flex items-center gap-1 w-16" onClick={() => setGraphOpen(false)}>
                 <span className="text-green-dark text-[17px] font-bold">←</span>
@@ -246,7 +264,6 @@ export default function DashboardScreen() {
               <div className="w-16" />
             </div>
 
-            {/* Tabs */}
             <div className="flex bg-card-alt rounded-[10px] p-[3px] mb-4">
               {['Temperature', 'Humidity'].map((label, i) => (
                 <button
@@ -261,20 +278,20 @@ export default function DashboardScreen() {
               ))}
             </div>
 
-            {/* Content */}
             <div className="flex-1 overflow-auto">
               {graphTab === 0 ? (
                 <div className="bg-background rounded-[14px] border border-border p-4">
                   <div className="flex justify-between items-center mb-3">
                     <span className="text-[11px] font-extrabold text-text-muted tracking-[1.5px]">TEMPERATURE</span>
-                    <StatusBadge label={`${data.temp.avg}°C avg`} type="success" size="sm" />
+                    <StatusBadge label={isLive ? `${data.temp.avg}°C avg` : "NO DATA"} type="success" size="sm" />
                   </div>
-                  <SensorLineChart
-                    data={MOCK_MONITORING.tempHistory}
-                    color="hsl(152,55%,28%)"
-                    yLabel="Temperature"
-                    unit="°C"
-                  />
+                  {history.temp.length > 1 ? (
+                    <SensorLineChart data={history.temp} color="hsl(152,55%,28%)" yLabel="Temperature" unit="°C" />
+                  ) : (
+                    <div className="h-[180px] flex items-center justify-center text-text-muted text-xs">
+                      Waiting for Arduino samples…
+                    </div>
+                  )}
                   <div className="flex gap-2 mt-3.5">
                     {[
                       { label: 'Sensor 1', val: data.temp.s1 },
@@ -286,7 +303,7 @@ export default function DashboardScreen() {
                           backgroundColor: getSensorStatus('temp', sr.val) === 'success' ? 'hsl(var(--green))' : 'hsl(var(--chart-amber))'
                         }} />
                         <span className="text-[10px] text-text-muted mb-1">{sr.label}</span>
-                        <span className="text-[15px] font-extrabold text-text-primary">{sr.val}°C</span>
+                        <span className="text-[15px] font-extrabold text-text-primary">{isLive ? `${sr.val}°C` : "—"}</span>
                       </div>
                     ))}
                   </div>
@@ -296,18 +313,19 @@ export default function DashboardScreen() {
                 <div className="bg-background rounded-[14px] border border-border p-4">
                   <div className="flex justify-between items-center mb-3">
                     <span className="text-[11px] font-extrabold text-text-muted tracking-[1.5px]">HUMIDITY</span>
-                    <StatusBadge label={`${data.humidity}%`} type="success" size="sm" />
+                    <StatusBadge label={isLive ? `${data.humidity}%` : "NO DATA"} type="success" size="sm" />
                   </div>
-                  <SensorLineChart
-                    data={MOCK_MONITORING.humidityHistory}
-                    color="hsl(152,60%,42%)"
-                    yLabel="Humidity"
-                    unit="%"
-                  />
+                  {history.humidity.length > 1 ? (
+                    <SensorLineChart data={history.humidity} color="hsl(152,60%,42%)" yLabel="Humidity" unit="%" />
+                  ) : (
+                    <div className="h-[180px] flex items-center justify-center text-text-muted text-xs">
+                      Waiting for Arduino samples…
+                    </div>
+                  )}
                   <div className="flex gap-2 mt-3 mb-3">
                     {[
-                      { label: 'Current', val: `${data.humidity}%` },
-                      { label: 'Status', val: 'Optimal', isGreen: true },
+                      { label: 'Current', val: isLive ? `${data.humidity}%` : "—" },
+                      { label: 'Status', val: isLive ? 'Optimal' : '—', isGreen: isLive },
                       { label: 'Target', val: '55–75%' },
                     ].map(({ label, val, isGreen }) => (
                       <div key={label} className="flex-1 flex flex-col items-center bg-card-alt rounded-lg py-2.5 border border-border">
@@ -316,13 +334,12 @@ export default function DashboardScreen() {
                       </div>
                     ))}
                   </div>
-                  <SensorBar value={data.humidity} max={100} />
+                  <SensorBar value={isLive ? data.humidity : 0} max={100} />
                   <p className="text-[10px] text-text-faint mt-2.5 text-right">Optimal range: 55–75 %</p>
                 </div>
               )}
             </div>
 
-            {/* Dots */}
             <div className="flex justify-center gap-1.5 pt-3.5">
               {[0, 1].map(i => (
                 <div key={i} className={`h-1.5 rounded-full transition-all ${graphTab === i ? 'w-5 bg-green-dark' : 'w-1.5 bg-border'}`} />
