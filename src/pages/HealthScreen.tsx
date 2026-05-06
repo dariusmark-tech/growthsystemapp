@@ -1,10 +1,31 @@
-import { AppCard, StatusBadge, SensorBar } from "@/components/shared/SharedComponents";
-import { SENSORS_HEALTH, SD_CARD } from "@/utils/mockData";
-import LogoutButton from "@/components/shared/LogoutButton";
+import { AppCard, StatusBadge } from "@/components/shared/SharedComponents";
+import { useArduinoSensors } from "@/hooks/useArduinoSensors";
+import { SD_CARD } from "@/utils/mockData";
 
 const sdPct = Math.round((SD_CARD.used / SD_CARD.total) * 100);
 
+function ago(iso: string | null) {
+  if (!iso) return "—";
+  const diff = Math.max(0, Date.now() - new Date(iso).getTime());
+  const s = Math.floor(diff / 1000);
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  return new Date(iso).toLocaleString();
+}
+
 export default function HealthScreen() {
+  const { readings, connected, loading, lastUpdated, error } = useArduinoSensors();
+
+  const sensorsArray = [
+    { name: 'DHT22 Sensor 1', ok: !!readings, value: readings ? `${readings.temp.s1} °C` : '—' },
+    { name: 'DHT22 Sensor 2', ok: !!readings, value: readings ? `${readings.temp.s2} °C` : '—' },
+    { name: 'DHT22 Sensor 3', ok: !!readings, value: readings ? `${readings.temp.s3} °C` : '—' },
+    { name: 'pH Sensor', ok: !!readings && readings.ph > 0, value: readings ? `${readings.ph} pH` : '—' },
+    { name: 'TDS Sensor', ok: !!readings && readings.tds > 0, value: readings ? `${readings.tds} ppm` : '—' },
+  ];
+  const activeCount = sensorsArray.filter(s => s.ok).length;
+
   return (
     <div className="p-4 pb-10 no-scrollbar overflow-auto">
       <div className="flex justify-between items-start mb-1 mt-2">
@@ -12,7 +33,6 @@ export default function HealthScreen() {
           <h1 className="text-[26px] font-extrabold text-text-primary tracking-tight">System Health</h1>
           <p className="text-text-muted text-xs">Hardware connectivity & diagnostics</p>
         </div>
-        <LogoutButton />
       </div>
 
       {/* ESP32 + Sensors Summary */}
@@ -21,11 +41,13 @@ export default function HealthScreen() {
           <div className="w-[38px] h-[38px] rounded-[10px] bg-green-light flex items-center justify-center mb-2">
             <span className="text-xl">🔧</span>
           </div>
-          <p className="text-[10px] text-text-muted font-semibold mb-0.5">ESP32-S3</p>
+          <p className="text-[10px] text-text-muted font-semibold mb-0.5">Arduino Nano ESP32-S3</p>
           <p className="text-lg font-extrabold text-text-primary mb-2">Controller</p>
-          <div className="flex items-center gap-1 bg-green-light rounded-full px-2 py-[3px] self-start border border-border-high w-fit">
-            <span className="text-green text-[10px]">●</span>
-            <span className="text-green-dark text-[10px] font-bold">Online</span>
+          <div className={`flex items-center gap-1 rounded-full px-2 py-[3px] self-start border w-fit ${connected ? 'bg-green-light border-border-high' : 'bg-danger-bg border-danger-border'}`}>
+            <span className={`text-[10px] ${connected ? 'text-green' : 'text-danger'}`}>●</span>
+            <span className={`text-[10px] font-bold ${connected ? 'text-green-dark' : 'text-danger'}`}>
+              {connected ? 'Online' : (loading ? 'Connecting…' : 'Offline')}
+            </span>
           </div>
         </AppCard>
 
@@ -34,10 +56,14 @@ export default function HealthScreen() {
             <span className="text-xl">📡</span>
           </div>
           <p className="text-[10px] text-text-muted font-semibold mb-0.5">Sensors</p>
-          <p className="text-lg font-extrabold text-text-primary mb-2">All Active</p>
-          <div className="flex items-center gap-1 bg-green-light rounded-full px-2 py-[3px] self-start border border-border-high w-fit">
-            <span className="text-green text-[10px]">●</span>
-            <span className="text-green-dark text-[10px] font-bold">{SENSORS_HEALTH.filter(s => s.ok).length}/{SENSORS_HEALTH.length}</span>
+          <p className="text-lg font-extrabold text-text-primary mb-2">
+            {activeCount === sensorsArray.length ? 'All Active' : connected ? 'Partial' : 'Offline'}
+          </p>
+          <div className={`flex items-center gap-1 rounded-full px-2 py-[3px] self-start border w-fit ${activeCount > 0 ? 'bg-green-light border-border-high' : 'bg-danger-bg border-danger-border'}`}>
+            <span className={`text-[10px] ${activeCount > 0 ? 'text-green' : 'text-danger'}`}>●</span>
+            <span className={`text-[10px] font-bold ${activeCount > 0 ? 'text-green-dark' : 'text-danger'}`}>
+              {activeCount}/{sensorsArray.length}
+            </span>
           </div>
         </AppCard>
       </div>
@@ -80,7 +106,6 @@ export default function HealthScreen() {
             }}
           />
         </div>
-        <p className="text-[10px] text-text-muted mt-1">{sdPct}% used · {(SD_CARD.total - SD_CARD.used).toFixed(1)} GB available</p>
       </AppCard>
 
       {/* Sensor Array */}
@@ -91,17 +116,17 @@ export default function HealthScreen() {
           </div>
           <div className="flex-1">
             <p className="text-[13px] font-bold text-text-primary">Sensor Array Status</p>
-            <p className="text-[10px] text-text-muted">Individual sensor health and connectivity</p>
+            <p className="text-[10px] text-text-muted">Live values from Arduino over Firebase</p>
           </div>
-          <StatusBadge label={`${SENSORS_HEALTH.filter(x => x.ok).length}/${SENSORS_HEALTH.length} Active`} type="success" size="sm" />
+          <StatusBadge label={`${activeCount}/${sensorsArray.length} Active`} type={activeCount > 0 ? 'success' : 'danger'} size="sm" />
         </div>
 
-        {SENSORS_HEALTH.map((sensor, i) => (
-          <div key={i} className={`flex items-center gap-3 px-4 py-3 ${i < SENSORS_HEALTH.length - 1 ? 'border-b border-green-light/50' : ''}`}>
+        {sensorsArray.map((sensor, i) => (
+          <div key={i} className={`flex items-center gap-3 px-4 py-3 ${i < sensorsArray.length - 1 ? 'border-b border-green-light/50' : ''}`}>
             <div className={`w-[9px] h-[9px] rounded-full flex-shrink-0 ${sensor.ok ? 'bg-green' : 'bg-danger'}`} />
             <div className="flex-1">
               <p className="text-[13px] font-semibold text-text-primary">{sensor.name}</p>
-              <p className="text-[10px] text-text-faint">Last reading: {sensor.last}</p>
+              <p className="text-[10px] text-text-faint">Value: {sensor.value} · {ago(lastUpdated)}</p>
             </div>
             <StatusBadge label={sensor.ok ? '⊙ Operational' : '⊗ Offline'} type={sensor.ok ? 'success' : 'danger'} size="sm" />
           </div>
@@ -111,16 +136,16 @@ export default function HealthScreen() {
       {/* Network */}
       <AppCard>
         <p className="text-[11px] font-bold text-text-muted uppercase tracking-wider mb-2">🌐 Network</p>
-        {([
-          { l: 'Backend API', v: 'Connected', t: 'success' as const },
-          { l: 'Firebase DB', v: 'Connected', t: 'success' as const },
-          { l: 'Last Sync', v: 'Just now', t: 'success' as const },
-        ] as const).map(({ l, v, t }) => (
+        {[
+          { l: 'Backend API', v: connected ? 'Connected' : (loading ? 'Connecting…' : 'Offline'), t: connected ? 'success' as const : 'danger' as const },
+          { l: 'Firebase DB', v: connected ? 'Connected' : (error ? 'Error' : 'Offline'), t: connected ? 'success' as const : 'danger' as const },
+          { l: 'Last Sync', v: ago(lastUpdated), t: 'success' as const },
+        ].map(({ l, v, t }) => (
           <div key={l} className="flex justify-between items-center py-1.5 border-b border-green-light/50 last:border-0">
             <span className="text-xs text-text-muted">{l}</span>
             {l === 'Last Sync'
               ? <span className="text-green text-[11px] font-bold">{v}</span>
-              : <StatusBadge label={v as string} type={t} size="sm" />
+              : <StatusBadge label={v} type={t} size="sm" />
             }
           </div>
         ))}
