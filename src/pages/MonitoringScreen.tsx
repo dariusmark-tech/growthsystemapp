@@ -9,16 +9,15 @@ const TIME_RANGES = ['1h', '6h', '24h', '7d'];
 
 export default function MonitoringScreen() {
   const [timeRange, setTimeRange] = useState('6h');
-  const { readings, connected, loading, error: sensorError } = useArduinoSensors();
-
-  if (!readings) {
-    return (
-      <div className="p-6 text-center">
-        <p className="text-text-primary font-bold mb-1">{loading ? "Connecting to Arduino…" : "No Arduino data"}</p>
-        <p className="text-text-muted text-xs">{sensorError ?? "Waiting for ESP32 readings…"}</p>
-      </div>
-    );
-  }
+  const { readings, connected, loading } = useArduinoSensors();
+  const isLive = !!readings;
+  const data = readings ?? {
+    temp: { s1: 0, s2: 0, s3: 0, avg: 0 },
+    humidity: 0,
+    ph: 0,
+    tds: 0,
+  };
+  const fmt = (v: number, suffix = "") => (isLive ? `${v}${suffix}` : "—");
 
   const getStatusLabel = (key: string, value: number) => {
     const status = getSensorStatus(key, value);
