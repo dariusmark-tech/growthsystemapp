@@ -128,7 +128,7 @@ export default function DashboardScreen() {
           </div>
           <div className="text-right">
             <span className="text-[30px] font-extrabold text-text-primary tracking-tight">
-              {data.temp.avg}<span className="text-sm font-normal text-text-faint">°C</span>
+              {isLive ? data.temp.avg : "—"}<span className="text-sm font-normal text-text-faint">°C</span>
             </span>
             <p className="text-[11px] text-text-muted mt-0.5">avg.</p>
           </div>
