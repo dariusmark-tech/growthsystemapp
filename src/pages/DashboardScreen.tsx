@@ -236,7 +236,7 @@ export default function DashboardScreen() {
                       {item.stage} · {formatRelative(item.created_at)}
                     </p>
                   </div>
-                  <StatusBadge label={`${Math.round(conf)}%`} type="success" size="sm" />
+                  
                 </button>
               );
             })}
