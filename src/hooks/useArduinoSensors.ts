@@ -117,9 +117,25 @@ async function tick() {
       tds: Math.round(Number(fb.tds?.value ?? 0)),
     };
 
-    const ts = fb.lastUpdated ?? new Date().toISOString();
-    setState({ readings, connected: true, lastUpdated: ts, error: null, loading: false });
-    pushHistory(readings, ts);
+    const ts = fb.lastUpdated ?? null;
+    // Device is "live" only if Arduino pushed an update recently.
+    // Firebase keeps the last written values forever, so without a freshness
+    // check the app would show "Online" even when the Arduino is unplugged.
+    const STALE_MS = 20_000; // 4× the Arduino's 5s push interval
+    let isFresh = false;
+    if (ts) {
+      const age = Date.now() - new Date(ts).getTime();
+      isFresh = Number.isFinite(age) && age >= 0 && age < STALE_MS;
+    }
+
+    setState({
+      readings,
+      connected: isFresh,
+      lastUpdated: ts,
+      error: isFresh ? null : "Arduino offline — showing last known values",
+      loading: false,
+    });
+    if (isFresh) pushHistory(readings, ts!);
   } catch (e) {
     setState({
       loading: false,
