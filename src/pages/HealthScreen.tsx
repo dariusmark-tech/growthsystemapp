@@ -120,7 +120,7 @@ export default function HealthScreen() {
             <p className="text-[13px] font-bold text-text-primary">Sensor Array Status</p>
             <p className="text-[10px] text-text-muted">Live values from Arduino over Firebase</p>
           </div>
-          <StatusBadge label={`${activeCount}/${sensorsArray.length} Active`} type={activeCount > 0 ? 'success' : 'danger'} size="sm" />
+          <StatusBadge label={`${activeCount}/${displayTotal} Active`} type={connected && activeCount > 0 ? 'success' : 'danger'} size="sm" />
         </div>
 
         {sensorsArray.map((sensor, i) => (
