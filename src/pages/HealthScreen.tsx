@@ -18,11 +18,11 @@ export default function HealthScreen() {
   const { readings, connected, loading, lastUpdated, error } = useArduinoSensors();
 
   const sensorsArray = [
-    { name: 'DHT22 Sensor 1', ok: connected && !!readings, value: readings ? `${readings.temp.s1} °C` : '—' },
-    { name: 'DHT22 Sensor 2', ok: connected && !!readings, value: readings ? `${readings.temp.s2} °C` : '—' },
-    { name: 'DHT22 Sensor 3', ok: connected && !!readings, value: readings ? `${readings.temp.s3} °C` : '—' },
-    { name: 'pH Sensor', ok: connected && !!readings && Number.isFinite(readings.ph), value: readings ? `${readings.ph} pH` : '—' },
-    { name: 'TDS Sensor', ok: connected && !!readings && Number.isFinite(readings.tds), value: readings ? `${readings.tds} ppm` : '—' },
+    { name: 'DHT22 Sensor 1', ok: connected && !!readings, value: connected && readings ? `${readings.temp.s1} °C` : '—' },
+    { name: 'DHT22 Sensor 2', ok: connected && !!readings, value: connected && readings ? `${readings.temp.s2} °C` : '—' },
+    { name: 'DHT22 Sensor 3', ok: connected && !!readings, value: connected && readings ? `${readings.temp.s3} °C` : '—' },
+    { name: 'pH Sensor', ok: connected && !!readings && Number.isFinite(readings.ph), value: connected && readings ? `${readings.ph} pH` : '—' },
+    { name: 'TDS Sensor', ok: connected && !!readings && Number.isFinite(readings.tds), value: connected && readings ? `${readings.tds} ppm` : '—' },
   ];
   const activeCount = connected ? sensorsArray.filter(s => s.ok).length : 0;
   const totalCount = sensorsArray.length;
