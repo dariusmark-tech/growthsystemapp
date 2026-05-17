@@ -8,7 +8,8 @@ interface FirebaseShape {
   dht3?: { temperature?: number; humidity?: number; tempStatus?: string; humStatus?: string };
   ph?: { value?: number; status?: string };
   tds?: { value?: number; status?: string };
-  lastUpdated?: string;
+  device?: { online?: boolean; lastSeen?: string | number };
+  lastUpdated?: string | number;
 }
 
 export interface ArduinoLogEntry {
@@ -37,12 +38,34 @@ export interface ArduinoSensorState {
 }
 
 const POLL_MS = 5000;
+const STALE_MS = 60_000;
 const HISTORY_LIMIT = 30;
 const LOG_LIMIT = 50;
 
 function round(n: number, d = 1) {
   const f = Math.pow(10, d);
   return Math.round(n * f) / f;
+}
+
+function normalizeFirebaseTime(value: string | number | undefined | null): string | null {
+  if (value === undefined || value === null || value === "") return null;
+
+  let ms: number;
+  if (typeof value === "number" || /^\d+$/.test(String(value))) {
+    const n = Number(value);
+    if (!Number.isFinite(n) || n <= 0) return null;
+    ms = n < 10_000_000_000 ? n * 1000 : n;
+  } else {
+    ms = new Date(value).getTime();
+  }
+
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
+}
+
+function isRecent(iso: string | null) {
+  if (!iso) return false;
+  const age = Date.now() - new Date(iso).getTime();
+  return Number.isFinite(age) && age >= 0 && age < STALE_MS;
 }
 
 // Singleton store shared across all consumers — one poll loop, one history buffer.
@@ -117,25 +140,21 @@ async function tick() {
       tds: Math.round(Number(fb.tds?.value ?? 0)),
     };
 
-    const ts = fb.lastUpdated ?? null;
-    // Device is "live" only if Arduino pushed an update recently.
-    // Firebase keeps the last written values forever, so without a freshness
-    // check the app would show "Online" even when the Arduino is unplugged.
-    const STALE_MS = 20_000; // 4× the Arduino's 5s push interval
-    let isFresh = false;
-    if (ts) {
-      const age = Date.now() - new Date(ts).getTime();
-      isFresh = Number.isFinite(age) && age >= 0 && age < STALE_MS;
-    }
+    const ts = normalizeFirebaseTime(fb.lastUpdated ?? fb.device?.lastSeen);
+    // Device is live when Firebase says it is online AND it pushed recently.
+    // If older Arduino code has no device.online flag, fall back to freshness only.
+    const isFresh = isRecent(ts);
+    const onlineFlag = fb.device?.online;
+    const isOnline = onlineFlag === false ? false : onlineFlag === true ? isFresh : isFresh;
 
     setState({
       readings,
-      connected: isFresh,
+      connected: isOnline,
       lastUpdated: ts,
-      error: isFresh ? null : "Arduino offline — showing last known values",
+      error: isOnline ? null : onlineFlag === false ? "Arduino marked offline in Firebase" : "Arduino offline — waiting for a fresh Firebase push",
       loading: false,
     });
-    if (isFresh) pushHistory(readings, ts!);
+    if (isOnline && ts) pushHistory(readings, ts);
   } catch (e) {
     setState({
       loading: false,
