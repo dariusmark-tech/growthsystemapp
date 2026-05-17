@@ -196,6 +196,39 @@ export default function MonitoringScreen() {
           })}
         </div>
       </AppCard>
+
+      {/* TDS Card */}
+      <AppCard className="mb-3">
+        <div className="flex justify-between items-center mb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-base">⚗️</span>
+            <span className="text-[13px] font-bold text-text-primary uppercase tracking-wide">TDS (Nutrients)</span>
+          </div>
+          <StatusBadge
+            label={isLive ? `${getSensorStatus('tds', data.tds).toUpperCase()} · ${data.tds} ppm` : "NO DATA"}
+            type={isLive ? getSensorStatus('tds', data.tds) : 'success'}
+            size="sm"
+          />
+        </div>
+
+        <p className="text-[32px] font-extrabold text-text-primary tracking-tight">
+          {isLive ? data.tds : "—"}<span className="text-sm font-normal text-text-faint"> ppm</span>
+        </p>
+
+        <SensorBar value={isLive ? data.tds : 0} max={2000} className="mt-2 mb-1" />
+        <p className="text-[10px] text-text-faint">Current: {isLive ? `${data.tds} ppm` : "—"} — Target: 800–1500 ppm</p>
+
+        <div className="mt-4">
+          {history.tds.length > 1 ? (
+            <SensorLineChart data={history.tds} color="hsl(35,85%,50%)" yLabel="TDS" unit="ppm" />
+          ) : (
+            <div className="h-[180px] flex items-center justify-center text-text-muted text-xs">
+              {connected ? 'Collecting Arduino samples…' : 'Waiting for Arduino…'}
+            </div>
+          )}
+          <p className="text-[10px] text-text-faint text-center -mt-1">TDS vs. Time</p>
+        </div>
+      </AppCard>
     </div>
   );
 }
