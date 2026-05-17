@@ -18,13 +18,15 @@ export default function HealthScreen() {
   const { readings, connected, loading, lastUpdated, error } = useArduinoSensors();
 
   const sensorsArray = [
-    { name: 'DHT22 Sensor 1', ok: !!readings, value: readings ? `${readings.temp.s1} °C` : '—' },
-    { name: 'DHT22 Sensor 2', ok: !!readings, value: readings ? `${readings.temp.s2} °C` : '—' },
-    { name: 'DHT22 Sensor 3', ok: !!readings, value: readings ? `${readings.temp.s3} °C` : '—' },
-    { name: 'pH Sensor', ok: !!readings && Number.isFinite(readings.ph), value: readings ? `${readings.ph} pH` : '—' },
-    { name: 'TDS Sensor', ok: !!readings && Number.isFinite(readings.tds), value: readings ? `${readings.tds} ppm` : '—' },
+    { name: 'DHT22 Sensor 1', ok: connected && !!readings, value: readings ? `${readings.temp.s1} °C` : '—' },
+    { name: 'DHT22 Sensor 2', ok: connected && !!readings, value: readings ? `${readings.temp.s2} °C` : '—' },
+    { name: 'DHT22 Sensor 3', ok: connected && !!readings, value: readings ? `${readings.temp.s3} °C` : '—' },
+    { name: 'pH Sensor', ok: connected && !!readings && Number.isFinite(readings.ph), value: readings ? `${readings.ph} pH` : '—' },
+    { name: 'TDS Sensor', ok: connected && !!readings && Number.isFinite(readings.tds), value: readings ? `${readings.tds} ppm` : '—' },
   ];
-  const activeCount = sensorsArray.filter(s => s.ok).length;
+  const activeCount = connected ? sensorsArray.filter(s => s.ok).length : 0;
+  const totalCount = sensorsArray.length;
+  const displayTotal = connected ? totalCount : 0;
 
   return (
     <div className="p-4 pb-10 no-scrollbar overflow-auto">
@@ -57,12 +59,12 @@ export default function HealthScreen() {
           </div>
           <p className="text-[10px] text-text-muted font-semibold mb-0.5">Sensors</p>
           <p className="text-lg font-extrabold text-text-primary mb-2">
-            {activeCount === sensorsArray.length ? 'All Active' : connected ? 'Partial' : 'Offline'}
+            {!connected ? 'Offline' : activeCount === totalCount ? 'All Active' : 'Partial'}
           </p>
-          <div className={`flex items-center gap-1 rounded-full px-2 py-[3px] self-start border w-fit ${activeCount > 0 ? 'bg-green-light border-border-high' : 'bg-danger-bg border-danger-border'}`}>
-            <span className={`text-[10px] ${activeCount > 0 ? 'text-green' : 'text-danger'}`}>●</span>
-            <span className={`text-[10px] font-bold ${activeCount > 0 ? 'text-green-dark' : 'text-danger'}`}>
-              {activeCount}/{sensorsArray.length}
+          <div className={`flex items-center gap-1 rounded-full px-2 py-[3px] self-start border w-fit ${connected && activeCount > 0 ? 'bg-green-light border-border-high' : 'bg-danger-bg border-danger-border'}`}>
+            <span className={`text-[10px] ${connected && activeCount > 0 ? 'text-green' : 'text-danger'}`}>●</span>
+            <span className={`text-[10px] font-bold ${connected && activeCount > 0 ? 'text-green-dark' : 'text-danger'}`}>
+              {activeCount}/{displayTotal}
             </span>
           </div>
         </AppCard>
@@ -118,7 +120,7 @@ export default function HealthScreen() {
             <p className="text-[13px] font-bold text-text-primary">Sensor Array Status</p>
             <p className="text-[10px] text-text-muted">Live values from Arduino over Firebase</p>
           </div>
-          <StatusBadge label={`${activeCount}/${sensorsArray.length} Active`} type={activeCount > 0 ? 'success' : 'danger'} size="sm" />
+          <StatusBadge label={`${activeCount}/${displayTotal} Active`} type={connected && activeCount > 0 ? 'success' : 'danger'} size="sm" />
         </div>
 
         {sensorsArray.map((sensor, i) => (
