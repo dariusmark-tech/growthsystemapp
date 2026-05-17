@@ -59,12 +59,12 @@ export default function HealthScreen() {
           </div>
           <p className="text-[10px] text-text-muted font-semibold mb-0.5">Sensors</p>
           <p className="text-lg font-extrabold text-text-primary mb-2">
-            {activeCount === sensorsArray.length ? 'All Active' : connected ? 'Partial' : 'Offline'}
+            {!connected ? 'Offline' : activeCount === totalCount ? 'All Active' : 'Partial'}
           </p>
-          <div className={`flex items-center gap-1 rounded-full px-2 py-[3px] self-start border w-fit ${activeCount > 0 ? 'bg-green-light border-border-high' : 'bg-danger-bg border-danger-border'}`}>
-            <span className={`text-[10px] ${activeCount > 0 ? 'text-green' : 'text-danger'}`}>●</span>
-            <span className={`text-[10px] font-bold ${activeCount > 0 ? 'text-green-dark' : 'text-danger'}`}>
-              {activeCount}/{sensorsArray.length}
+          <div className={`flex items-center gap-1 rounded-full px-2 py-[3px] self-start border w-fit ${connected && activeCount > 0 ? 'bg-green-light border-border-high' : 'bg-danger-bg border-danger-border'}`}>
+            <span className={`text-[10px] ${connected && activeCount > 0 ? 'text-green' : 'text-danger'}`}>●</span>
+            <span className={`text-[10px] font-bold ${connected && activeCount > 0 ? 'text-green-dark' : 'text-danger'}`}>
+              {activeCount}/{displayTotal}
             </span>
           </div>
         </AppCard>
