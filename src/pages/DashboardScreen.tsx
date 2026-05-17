@@ -191,6 +191,58 @@ export default function DashboardScreen() {
         </div>
       </AppCard>
 
+      {/* pH + TDS Card */}
+      <AppCard className="mb-3">
+        <button className="flex items-center justify-between w-full py-3" onClick={() => { setGraphTab(2); setGraphOpen(true); }}>
+          <div className="flex-1 pr-2">
+            <p className="text-[15px] font-bold text-text-primary mb-2">pH Level</p>
+            <SensorBar
+              value={data.ph}
+              max={14}
+              color={getSensorStatus('ph', data.ph) === 'success' ? 'hsl(var(--green))' : 'hsl(var(--chart-amber))'}
+              className="w-[90%]"
+            />
+            <p className="text-[10px] text-text-faint mt-1">Target: 5.5–6.5</p>
+          </div>
+          <div className="text-right">
+            <span className="text-[30px] font-extrabold text-text-primary tracking-tight">
+              {isLive ? data.ph : "—"}
+            </span>
+            <p className="text-[11px] text-text-muted mt-0.5">pH</p>
+          </div>
+        </button>
+
+        <div className="h-px bg-border -mx-4" />
+
+        <button className="flex items-center justify-between w-full py-3" onClick={() => { setGraphTab(3); setGraphOpen(true); }}>
+          <div className="flex-1 pr-2">
+            <p className="text-[15px] font-bold text-text-primary mb-2">TDS (Nutrients)</p>
+            <SensorBar
+              value={data.tds}
+              max={2000}
+              color={getSensorStatus('tds', data.tds) === 'success' ? 'hsl(var(--green))' : 'hsl(var(--chart-amber))'}
+              className="w-[90%]"
+            />
+            <p className="text-[10px] text-text-faint mt-1">Target: 800–1500 ppm</p>
+          </div>
+          <div className="text-right">
+            <span className="text-[30px] font-extrabold text-text-primary tracking-tight">
+              {isLive ? data.tds : "—"}<span className="text-sm font-normal text-text-faint"> ppm</span>
+            </span>
+            <p className="text-[11px] text-text-muted mt-0.5">current</p>
+          </div>
+        </button>
+
+        <div className="flex justify-end mt-3">
+          <button
+            className="flex items-center gap-1.5 px-4 py-2 rounded-full border border-green-dark bg-green-light text-green-dark text-[13px] font-bold"
+            onClick={() => { setGraphTab(3); setGraphOpen(true); }}
+          >
+            Graph <span>→</span>
+          </button>
+        </div>
+      </AppCard>
+
       {/* Classification History */}
       <AppCard>
         <div className="flex justify-between items-center mb-3">
