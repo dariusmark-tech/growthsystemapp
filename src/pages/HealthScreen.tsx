@@ -21,8 +21,8 @@ export default function HealthScreen() {
     { name: 'DHT22 Sensor 1', ok: !!readings, value: readings ? `${readings.temp.s1} °C` : '—' },
     { name: 'DHT22 Sensor 2', ok: !!readings, value: readings ? `${readings.temp.s2} °C` : '—' },
     { name: 'DHT22 Sensor 3', ok: !!readings, value: readings ? `${readings.temp.s3} °C` : '—' },
-    { name: 'pH Sensor', ok: !!readings && readings.ph > 0, value: readings ? `${readings.ph} pH` : '—' },
-    { name: 'TDS Sensor', ok: !!readings && readings.tds > 0, value: readings ? `${readings.tds} ppm` : '—' },
+    { name: 'pH Sensor', ok: !!readings && Number.isFinite(readings.ph), value: readings ? `${readings.ph} pH` : '—' },
+    { name: 'TDS Sensor', ok: !!readings && Number.isFinite(readings.tds), value: readings ? `${readings.tds} ppm` : '—' },
   ];
   const activeCount = sensorsArray.filter(s => s.ok).length;
 
