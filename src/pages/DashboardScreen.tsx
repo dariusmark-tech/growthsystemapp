@@ -361,7 +361,7 @@ export default function DashboardScreen() {
                   </div>
                   <p className="text-[10px] text-text-faint mt-2.5 text-right">Optimal range: 20–28 °C</p>
                 </div>
-              ) : (
+              ) : graphTab === 1 ? (
                 <div className="bg-background rounded-[14px] border border-border p-4">
                   <div className="flex justify-between items-center mb-3">
                     <span className="text-[11px] font-extrabold text-text-muted tracking-[1.5px]">HUMIDITY</span>
@@ -389,11 +389,43 @@ export default function DashboardScreen() {
                   <SensorBar value={isLive ? data.humidity : 0} max={100} />
                   <p className="text-[10px] text-text-faint mt-2.5 text-right">Optimal range: 55–75 %</p>
                 </div>
+              ) : graphTab === 2 ? (
+                <div className="bg-background rounded-[14px] border border-border p-4">
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-[11px] font-extrabold text-text-muted tracking-[1.5px]">pH LEVEL</span>
+                    <StatusBadge label={isLive ? `${data.ph} pH` : "NO DATA"} type={isLive ? getSensorStatus('ph', data.ph) : 'success'} size="sm" />
+                  </div>
+                  {history.ph.length > 1 ? (
+                    <SensorLineChart data={history.ph} color="hsl(200,70%,45%)" yLabel="pH" unit="" />
+                  ) : (
+                    <div className="h-[180px] flex items-center justify-center text-text-muted text-xs">
+                      Waiting for Arduino samples…
+                    </div>
+                  )}
+                  <SensorBar value={isLive ? data.ph : 0} max={14} className="mt-3" />
+                  <p className="text-[10px] text-text-faint mt-2.5 text-right">Optimal range: 5.5–6.5</p>
+                </div>
+              ) : (
+                <div className="bg-background rounded-[14px] border border-border p-4">
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-[11px] font-extrabold text-text-muted tracking-[1.5px]">TDS (NUTRIENTS)</span>
+                    <StatusBadge label={isLive ? `${data.tds} ppm` : "NO DATA"} type={isLive ? getSensorStatus('tds', data.tds) : 'success'} size="sm" />
+                  </div>
+                  {history.tds.length > 1 ? (
+                    <SensorLineChart data={history.tds} color="hsl(35,85%,50%)" yLabel="TDS" unit="ppm" />
+                  ) : (
+                    <div className="h-[180px] flex items-center justify-center text-text-muted text-xs">
+                      Waiting for Arduino samples…
+                    </div>
+                  )}
+                  <SensorBar value={isLive ? data.tds : 0} max={2000} className="mt-3" />
+                  <p className="text-[10px] text-text-faint mt-2.5 text-right">Optimal range: 800–1500 ppm</p>
+                </div>
               )}
             </div>
 
             <div className="flex justify-center gap-1.5 pt-3.5">
-              {[0, 1].map(i => (
+              {[0, 1, 2, 3].map(i => (
                 <div key={i} className={`h-1.5 rounded-full transition-all ${graphTab === i ? 'w-5 bg-green-dark' : 'w-1.5 bg-border'}`} />
               ))}
             </div>
