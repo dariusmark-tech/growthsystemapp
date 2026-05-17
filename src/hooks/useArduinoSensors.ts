@@ -57,6 +57,8 @@ let state: ArduinoSensorState = {
   logs: [],
 };
 let pollHandle: ReturnType<typeof setInterval> | null = null;
+let lastSeenRaw: string | null = null;
+let lastSeenAt = 0;
 
 function setState(patch: Partial<ArduinoSensorState>) {
   state = { ...state, ...patch };
@@ -117,25 +119,29 @@ async function tick() {
       tds: Math.round(Number(fb.tds?.value ?? 0)),
     };
 
-    const ts = fb.lastUpdated ?? null;
-    // Device is "live" only if Arduino pushed an update recently.
-    // Firebase keeps the last written values forever, so without a freshness
-    // check the app would show "Online" even when the Arduino is unplugged.
+    // Arduino sends `lastUpdated` as String(millis()) — uptime in ms, not a
+    // wall-clock date. So we can't parse it as a Date. Instead we detect
+    // freshness by watching the value *change*: if it changes between polls,
+    // the Arduino is actively pushing.
+    const rawTs = fb.lastUpdated != null ? String(fb.lastUpdated) : null;
     const STALE_MS = 20_000; // 4× the Arduino's 5s push interval
-    let isFresh = false;
-    if (ts) {
-      const age = Date.now() - new Date(ts).getTime();
-      isFresh = Number.isFinite(age) && age >= 0 && age < STALE_MS;
+    const nowMs = Date.now();
+
+    if (rawTs && rawTs !== lastSeenRaw) {
+      lastSeenRaw = rawTs;
+      lastSeenAt = nowMs;
     }
+    const isFresh = lastSeenAt > 0 && nowMs - lastSeenAt < STALE_MS;
+    const wallClockIso = lastSeenAt > 0 ? new Date(lastSeenAt).toISOString() : null;
 
     setState({
       readings,
       connected: isFresh,
-      lastUpdated: ts,
+      lastUpdated: wallClockIso,
       error: isFresh ? null : "Arduino offline — showing last known values",
       loading: false,
     });
-    if (isFresh) pushHistory(readings, ts!);
+    if (isFresh && wallClockIso) pushHistory(readings, wallClockIso);
   } catch (e) {
     setState({
       loading: false,
