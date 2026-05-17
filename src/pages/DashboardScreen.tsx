@@ -317,10 +317,10 @@ export default function DashboardScreen() {
             </div>
 
             <div className="flex bg-card-alt rounded-[10px] p-[3px] mb-4">
-              {['Temperature', 'Humidity'].map((label, i) => (
+              {['Temp', 'Humidity', 'pH', 'TDS'].map((label, i) => (
                 <button
                   key={label}
-                  className={`flex-1 py-2.5 rounded-lg text-[13px] font-semibold text-center transition-colors ${
+                  className={`flex-1 py-2.5 rounded-lg text-[12px] font-semibold text-center transition-colors ${
                     graphTab === i ? 'bg-green-dark text-green-light font-bold' : 'text-text-muted'
                   }`}
                   onClick={() => setGraphTab(i)}
