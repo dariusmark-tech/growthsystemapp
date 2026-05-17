@@ -57,6 +57,8 @@ let state: ArduinoSensorState = {
   logs: [],
 };
 let pollHandle: ReturnType<typeof setInterval> | null = null;
+let lastSeenRaw: string | null = null;
+let lastSeenAt = 0;
 
 function setState(patch: Partial<ArduinoSensorState>) {
   state = { ...state, ...patch };
