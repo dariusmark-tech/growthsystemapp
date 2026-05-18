@@ -67,17 +67,37 @@ export default function DashboardScreen() {
   }, [readings]);
 
   const loadHistory = useCallback(async () => {
-    setHistoryLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setHistoryItems([]);
+      setHistoryLoading(false);
+      return;
+    }
     const { data, error } = await supabase
       .from('plant_analyses')
       .select('id, plant_name, stage, confidence, days_to_next, harvest_date, image_url, created_at, nutrients, raw_response')
+      .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(8);
+    if (error) console.error("Load history failed:", error);
     if (!error && data) setHistoryItems(data as unknown as HistoryItem[]);
     setHistoryLoading(false);
   }, []);
 
   useEffect(() => { loadHistory(); }, [loadHistory]);
+
+  useEffect(() => {
+    const refresh = () => { loadHistory(); };
+    const onVis = () => { if (document.visibilityState === "visible") loadHistory(); };
+    window.addEventListener("plant-history-updated", refresh);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("plant-history-updated", refresh);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [loadHistory]);
 
   useEffect(() => {
     if (!readings) return;

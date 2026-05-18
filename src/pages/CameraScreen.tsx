@@ -105,21 +105,34 @@ export default function CameraScreen() {
       setResult(analysis);
       setClassified(true);
 
-      if (user) (async () => {
-        const imageUrl = await uploadPhoto(imageUri);
-        const { error: dbErr } = await supabase.from("plant_analyses").insert({
-          user_id: user.id,
-          image_url: imageUrl,
-          plant_name: analysis.plantName,
-          stage: analysis.stage,
-          confidence: analysis.confidence as any,
-          days_to_next: analysis.daysToNext,
-          harvest_date: analysis.harvestDate,
-          nutrients: analysis.nutrients as any,
-          raw_response: analysis as any,
-        });
-        if (dbErr) console.error("Save failed:", dbErr);
-      })();
+      if (!user) {
+        toast.error("Sign in to save to Classification History");
+      } else {
+        try {
+          const imageUrl = await uploadPhoto(imageUri);
+          const { error: dbErr } = await supabase.from("plant_analyses").insert({
+            user_id: user.id,
+            image_url: imageUrl,
+            plant_name: analysis.plantName,
+            stage: analysis.stage,
+            confidence: analysis.confidence as any,
+            days_to_next: analysis.daysToNext,
+            harvest_date: analysis.harvestDate,
+            nutrients: analysis.nutrients as any,
+            raw_response: analysis as any,
+          });
+          if (dbErr) {
+            console.error("Save to history failed:", dbErr);
+            toast.error(`Could not save to history: ${dbErr.message}`);
+          } else {
+            window.dispatchEvent(new Event("plant-history-updated"));
+            toast.success("Saved to Classification History");
+          }
+        } catch (saveErr: any) {
+          console.error("Save to history error:", saveErr);
+          toast.error(saveErr?.message || "Could not save to history");
+        }
+      }
     } catch (e: any) {
       console.error(e);
       toast.error(e?.message || "Something went wrong");
