@@ -36,8 +36,9 @@ export interface ArduinoSensorState {
   logs: ArduinoLogEntry[];
 }
 
-const POLL_MS = 1000;
-const STALE_MS = 7_000; // Arduino writes about every 5s; re-check Firebase every 1s.
+const POLL_MS = 1000; // Poll every 1s for fast offline detection
+const DATA_UPDATE_MS = 5000; // Only refresh readings/graphs every 5s
+const STALE_MS = 7_000; // Arduino writes about every 5s
 const HISTORY_LIMIT = 30;
 const LOG_LIMIT = 50;
 
