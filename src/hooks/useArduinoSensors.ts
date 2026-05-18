@@ -140,6 +140,7 @@ async function tick() {
 
     const isFresh = seenAt > 0 && nowMs - seenAt < STALE_MS;
     if (!isFresh) {
+      // Offline transitions are immediate (every 1s poll)
       setState({
         readings: null,
         connected: false,
@@ -147,6 +148,14 @@ async function tick() {
         error: "Arduino offline — waiting for new Firebase heartbeat",
         loading: false,
       });
+      return;
+    }
+
+    // Throttle sensor data + graph updates to every 5s, even though we poll
+    // every 1s for fast offline detection. Always run the first update.
+    if (state.readings !== null && nowMs - lastDataUpdateAt < DATA_UPDATE_MS) {
+      // Already connected and recent — skip refreshing readings/history this tick
+      if (!state.connected) setState({ connected: true, error: null });
       return;
     }
 
@@ -165,15 +174,16 @@ async function tick() {
     };
 
     const wallClockIso = new Date(seenAt).toISOString();
+    lastDataUpdateAt = nowMs;
 
     setState({
       readings,
-      connected: isFresh,
+      connected: true,
       lastUpdated: wallClockIso,
-      error: isFresh ? null : "Arduino offline — showing last known values",
+      error: null,
       loading: false,
     });
-    if (isFresh && wallClockIso) pushHistory(readings, wallClockIso);
+    if (wallClockIso) pushHistory(readings, wallClockIso);
   } catch (e) {
     setState({
       loading: false,
