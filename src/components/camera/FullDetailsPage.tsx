@@ -2,7 +2,13 @@ import { AppCard, CardLabel } from "@/components/shared/SharedComponents";
 import { PlantAnalysis, StageName } from "@/components/camera/types";
 
 const STAGES: StageName[] = ["Seedling", "Vegetative", "Fruiting", "Harvest"];
-const isNoPlant = (name: string) => /n\/?a|no plant/i.test(name);
+const isNoPlant = (name: string) => {
+  const n = (name || "").trim().toLowerCase();
+  if (!n) return true;
+  if (/^(n\s*\/?\s*a|na|none|unknown|null|undefined|-+)$/.test(n)) return true;
+  if (/no\s*plant|not\s*a\s*plant|no\s*plant\s*detected|not\s*detected|cannot\s*identify|unidentified|no\s*plant\s*visible/.test(n)) return true;
+  return false;
+};
 
 export function FullDetailsPage({
   result,

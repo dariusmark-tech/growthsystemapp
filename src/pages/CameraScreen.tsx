@@ -209,7 +209,11 @@ export default function CameraScreen() {
           <CardLabel className="mb-0">Plant Classification & Growth Stage Analysis</CardLabel>
 
           {(() => {
-            const noPlant = /n\/?a|no plant/i.test(result.plantName);
+            const _n = (result.plantName || "").trim().toLowerCase();
+            const noPlant =
+              !_n ||
+              /^(n\s*\/?\s*a|na|none|unknown|null|undefined|-+)$/.test(_n) ||
+              /no\s*plant|not\s*a\s*plant|not\s*detected|cannot\s*identify|unidentified|no\s*plant\s*visible/.test(_n);
             const rows: [string, string][] = noPlant
               ? [["Plant", result.plantName], ["Growth stage", "N/A"], ["Harvest est.", "N/A"]]
               : [["Plant", result.plantName], ["Growth stage", result.stage], ["Harvest est.", result.harvestDate]];
