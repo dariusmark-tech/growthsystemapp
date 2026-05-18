@@ -36,8 +36,9 @@ export interface ArduinoSensorState {
   logs: ArduinoLogEntry[];
 }
 
-const POLL_MS = 1000;
-const STALE_MS = 7_000; // Arduino writes about every 5s; re-check Firebase every 1s.
+const POLL_MS = 1000; // Poll every 1s for fast offline detection
+const DATA_UPDATE_MS = 5000; // Only refresh readings/graphs every 5s
+const STALE_MS = 7_000; // Arduino writes about every 5s
 const HISTORY_LIMIT = 30;
 const LOG_LIMIT = 50;
 
@@ -60,6 +61,7 @@ let state: ArduinoSensorState = {
 let pollHandle: ReturnType<typeof setInterval> | null = null;
 let lastSeenRaw: string | null = null;
 let lastSeenAt = 0;
+let lastDataUpdateAt = 0;
 let lifecycleListenersAttached = false;
 
 function setState(patch: Partial<ArduinoSensorState>) {
@@ -138,6 +140,7 @@ async function tick() {
 
     const isFresh = seenAt > 0 && nowMs - seenAt < STALE_MS;
     if (!isFresh) {
+      // Offline transitions are immediate (every 1s poll)
       setState({
         readings: null,
         connected: false,
@@ -145,6 +148,14 @@ async function tick() {
         error: "Arduino offline — waiting for new Firebase heartbeat",
         loading: false,
       });
+      return;
+    }
+
+    // Throttle sensor data + graph updates to every 5s, even though we poll
+    // every 1s for fast offline detection. Always run the first update.
+    if (state.readings !== null && nowMs - lastDataUpdateAt < DATA_UPDATE_MS) {
+      // Already connected and recent — skip refreshing readings/history this tick
+      if (!state.connected) setState({ connected: true, error: null });
       return;
     }
 
@@ -163,15 +174,16 @@ async function tick() {
     };
 
     const wallClockIso = new Date(seenAt).toISOString();
+    lastDataUpdateAt = nowMs;
 
     setState({
       readings,
-      connected: isFresh,
+      connected: true,
       lastUpdated: wallClockIso,
-      error: isFresh ? null : "Arduino offline — showing last known values",
+      error: null,
       loading: false,
     });
-    if (isFresh && wallClockIso) pushHistory(readings, wallClockIso);
+    if (wallClockIso) pushHistory(readings, wallClockIso);
   } catch (e) {
     setState({
       loading: false,
