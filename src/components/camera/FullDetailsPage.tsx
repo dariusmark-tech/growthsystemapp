@@ -147,6 +147,7 @@ export function FullDetailsPage({
           );
         })()}
 
+        {!isNoPlant(result.plantName) && (
         <AppCard className="mb-3">
           <CardLabel>Growth Prediction Analysis</CardLabel>
           <div className="flex items-start justify-between my-3">
@@ -184,6 +185,7 @@ export function FullDetailsPage({
             ))}
           </div>
         </AppCard>
+        )}
 
       </div>
     </div>
