@@ -208,24 +208,28 @@ export default function CameraScreen() {
         <AppCard>
           <CardLabel className="mb-0">Plant Classification & Growth Stage Analysis</CardLabel>
 
-          <div className="mt-3 mb-3">
-            {[
-              ["Plant", result.plantName],
-              ["Growth stage", result.stage],
-              ["Harvest est.", result.harvestDate],
-            ].map(([key, val]) => (
-              <div key={key} className="flex justify-between items-center py-[7px] border-b border-border">
-                <span className="text-xs text-text-muted font-semibold">{key}</span>
-                {key === "Growth stage" ? (
-                  <StatusBadge label={val as string} type="success" size="sm" />
-                ) : (
-                  <span className={`text-[13px] font-bold ${key === "Harvest est." ? "text-green-dark" : "text-text-primary"}`}>
-                    {val}
-                  </span>
-                )}
+          {(() => {
+            const noPlant = /n\/?a|no plant/i.test(result.plantName);
+            const rows: [string, string][] = noPlant
+              ? [["Plant", result.plantName], ["Growth stage", "N/A"], ["Harvest est.", "N/A"]]
+              : [["Plant", result.plantName], ["Growth stage", result.stage], ["Harvest est.", result.harvestDate]];
+            return (
+              <div className="mt-3 mb-3">
+                {rows.map(([key, val]) => (
+                  <div key={key} className="flex justify-between items-center py-[7px] border-b border-border">
+                    <span className="text-xs text-text-muted font-semibold">{key}</span>
+                    {key === "Growth stage" && !noPlant ? (
+                      <StatusBadge label={val} type="success" size="sm" />
+                    ) : (
+                      <span className={`text-[13px] font-bold ${key === "Harvest est." && !noPlant ? "text-green-dark" : "text-text-primary"}`}>
+                        {val}
+                      </span>
+                    )}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            );
+          })()}
 
           <div className="flex justify-end">
             <button
