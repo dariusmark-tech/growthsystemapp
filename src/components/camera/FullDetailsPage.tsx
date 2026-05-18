@@ -2,6 +2,7 @@ import { AppCard, CardLabel } from "@/components/shared/SharedComponents";
 import { PlantAnalysis, StageName } from "@/components/camera/types";
 
 const STAGES: StageName[] = ["Seedling", "Vegetative", "Fruiting", "Harvest"];
+const isNoPlant = (name: string) => /n\/?a|no plant/i.test(name);
 
 export function FullDetailsPage({
   result,
@@ -48,7 +49,7 @@ export function FullDetailsPage({
             <p className="text-xs font-bold text-text-muted mb-2">Details:</p>
             {[
               ["Plant classification", result.plantName],
-              ["Growth stage", result.stage],
+              ["Growth stage", isNoPlant(result.plantName) ? "N/A" : result.stage],
             ].map(([key, val]) => (
               <div key={key} className="flex justify-between items-center py-1.5 border-b border-border">
                 <span className="text-xs text-text-muted">{key}</span>
@@ -146,6 +147,7 @@ export function FullDetailsPage({
           );
         })()}
 
+        {!isNoPlant(result.plantName) && (
         <AppCard className="mb-3">
           <CardLabel>Growth Prediction Analysis</CardLabel>
           <div className="flex items-start justify-between my-3">
@@ -183,6 +185,7 @@ export function FullDetailsPage({
             ))}
           </div>
         </AppCard>
+        )}
 
       </div>
     </div>
