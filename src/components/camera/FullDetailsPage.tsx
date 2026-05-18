@@ -49,7 +49,7 @@ export function FullDetailsPage({
             <p className="text-xs font-bold text-text-muted mb-2">Details:</p>
             {[
               ["Plant classification", result.plantName],
-              ["Growth stage", result.stage],
+              ["Growth stage", isNoPlant(result.plantName) ? "N/A" : result.stage],
             ].map(([key, val]) => (
               <div key={key} className="flex justify-between items-center py-1.5 border-b border-border">
                 <span className="text-xs text-text-muted">{key}</span>
