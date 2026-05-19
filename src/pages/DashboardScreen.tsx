@@ -67,20 +67,31 @@ export default function DashboardScreen() {
   }, [readings]);
 
   const loadHistory = useCallback(async () => {
+    const readLocal = (): HistoryItem[] => {
+      try {
+        const raw = localStorage.getItem("growth_local_history");
+        return raw ? (JSON.parse(raw) as HistoryItem[]) : [];
+      } catch { return []; }
+    };
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setHistoryItems([]);
-      setHistoryLoading(false);
-      return;
+    let cloud: HistoryItem[] = [];
+    if (user) {
+      const { data, error } = await supabase
+        .from('plant_analyses')
+        .select('id, plant_name, stage, confidence, days_to_next, harvest_date, image_url, created_at, nutrients, raw_response')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(8);
+      if (error) console.error("Load history failed:", error);
+      if (data) cloud = data as unknown as HistoryItem[];
     }
-    const { data, error } = await supabase
-      .from('plant_analyses')
-      .select('id, plant_name, stage, confidence, days_to_next, harvest_date, image_url, created_at, nutrients, raw_response')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(8);
-    if (error) console.error("Load history failed:", error);
-    if (!error && data) setHistoryItems(data as unknown as HistoryItem[]);
+    const local = readLocal();
+    const map = new Map<string, HistoryItem>();
+    for (const it of [...cloud, ...local]) map.set(it.id, it);
+    const merged = Array.from(map.values())
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 8);
+    setHistoryItems(merged);
     setHistoryLoading(false);
   }, []);
 
