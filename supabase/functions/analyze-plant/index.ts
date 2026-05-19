@@ -224,7 +224,21 @@ Deno.serve(async (req) => {
     const result = geminiRes.value;
     const roboflow = roboflowRes.status === "fulfilled" ? roboflowRes.value : null;
 
-    if (roboflow) {
+    // Detect Gemini's "no plant" verdict from name or notes so Roboflow doesn't override it.
+    const noPlantRe = /no\s*plant|not\s*a\s*plant|not\s*detected|cannot\s*identify|unidentified|does\s*not\s*(appear\s*to\s*)?contain\s*a?\s*plant|no\s*plant\s*visible|promotional|cartoon|illustration|game|character|monster|dragon/i;
+    const geminiName = String(result?.plantName ?? "").trim();
+    const geminiNotes = String(result?.notes ?? "");
+    const geminiSaysNoPlant =
+      !geminiName ||
+      /^(n\/?a|na|none|unknown|null|undefined|-+)$/i.test(geminiName) ||
+      noPlantRe.test(geminiName) ||
+      noPlantRe.test(geminiNotes);
+
+    if (geminiSaysNoPlant) {
+      result.plantName = "No plant detected";
+      result.noPlant = true;
+      if (roboflow) result.roboflow = roboflow; // keep for debugging, but don't override name
+    } else if (roboflow) {
       // Override plant name with Roboflow's prediction (your custom model wins)
       result.roboflow = roboflow;
       result.plantName = roboflow.topClass;
