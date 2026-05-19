@@ -105,11 +105,13 @@ export default function CameraScreen() {
       setResult(analysis);
       setClassified(true);
 
-      if (!user) {
-        toast.error("Sign in to save to Classification History");
-      } else {
-        try {
-          const imageUrl = await uploadPhoto(imageUri);
+      // Save to Classification History — works with or without sign-in.
+      // If signed in, persist to cloud + storage. Otherwise, save locally so
+      // the dashboard history still works.
+      try {
+        let imageUrl: string | null = null;
+        if (user) {
+          imageUrl = await uploadPhoto(imageUri);
           const { error: dbErr } = await supabase.from("plant_analyses").insert({
             user_id: user.id,
             image_url: imageUrl,
@@ -122,16 +124,37 @@ export default function CameraScreen() {
             raw_response: analysis as any,
           });
           if (dbErr) {
-            console.error("Save to history failed:", dbErr);
-            toast.error(`Could not save to history: ${dbErr.message}`);
-          } else {
-            window.dispatchEvent(new Event("plant-history-updated"));
-            toast.success("Saved to Classification History");
+            console.error("Save to cloud history failed:", dbErr);
           }
-        } catch (saveErr: any) {
-          console.error("Save to history error:", saveErr);
-          toast.error(saveErr?.message || "Could not save to history");
         }
+
+        // Always also save to local history so it shows even without sign-in.
+        try {
+          const KEY = "growth_local_history";
+          const existing = JSON.parse(localStorage.getItem(KEY) || "[]");
+          const entry = {
+            id: `local-${Date.now()}`,
+            plant_name: analysis.plantName,
+            stage: analysis.stage,
+            confidence: analysis.confidence,
+            days_to_next: analysis.daysToNext,
+            harvest_date: analysis.harvestDate,
+            image_url: imageUrl ?? imageUri,
+            created_at: new Date().toISOString(),
+            nutrients: analysis.nutrients,
+            raw_response: analysis,
+          };
+          const next = [entry, ...existing].slice(0, 20);
+          localStorage.setItem(KEY, JSON.stringify(next));
+        } catch (lsErr) {
+          console.warn("Local history save failed:", lsErr);
+        }
+
+        window.dispatchEvent(new Event("plant-history-updated"));
+        toast.success("Saved to Classification History");
+      } catch (saveErr: any) {
+        console.error("Save to history error:", saveErr);
+        toast.error(saveErr?.message || "Could not save to history");
       }
     } catch (e: any) {
       console.error(e);
