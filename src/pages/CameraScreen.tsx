@@ -246,12 +246,16 @@ export default function CameraScreen() {
 
           {(() => {
             const _n = (result.plantName || "").trim().toLowerCase();
+            const _notes = (result.notes || "");
+            const NP = /no\s*plant|not\s*a\s*plant|not\s*detected|cannot\s*identify|unidentified|does\s*not\s*(appear\s*to\s*)?contain\s*a?\s*plant|no\s*plant\s*visible|promotional|cartoon|illustration|game\b|character|monster|dragon/i;
             const noPlant =
+              (result as any)?.noPlant === true ||
               !_n ||
               /^(n\s*\/?\s*a|na|none|unknown|null|undefined|-+)$/.test(_n) ||
-              /no\s*plant|not\s*a\s*plant|not\s*detected|cannot\s*identify|unidentified|no\s*plant\s*visible/.test(_n);
+              NP.test(_n) ||
+              NP.test(_notes);
             const rows: [string, string][] = noPlant
-              ? [["Plant", result.plantName], ["Growth stage", "N/A"], ["Harvest est.", "N/A"]]
+              ? [["Plant", noPlant ? "No plant detected" : result.plantName], ["Growth stage", "N/A"], ["Harvest est.", "N/A"]]
               : [["Plant", result.plantName], ["Growth stage", result.stage], ["Harvest est.", result.harvestDate]];
             return (
               <div className="mt-3 mb-3">
