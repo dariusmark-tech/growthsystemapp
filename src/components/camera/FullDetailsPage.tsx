@@ -72,7 +72,7 @@ export function FullDetailsPage({
           )}
         </AppCard>
 
-        {(() => {
+        {!isNoPlantResult(result) && (() => {
           const rb = result.roboflow;
           // Use the strongest available signal: top stage confidence from Gemini
           const stageConfs = result.confidence ? Object.values(result.confidence).map(Number) : [];
