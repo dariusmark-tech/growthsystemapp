@@ -148,14 +148,6 @@ export default function DashboardScreen() {
           <h1 className="text-[28px] font-extrabold text-text-primary tracking-tight">Dashboard</h1>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => refreshSensors()}
-            className="w-7 h-7 rounded-full border border-border bg-card flex items-center justify-center active:scale-95 transition-transform"
-            aria-label="Reconnect sensors"
-            title="Refresh sensor data"
-          >
-            <RefreshCw size={13} className="text-text-muted" strokeWidth={2.5} />
-          </button>
           <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${connected ? 'bg-green-light border-border-high' : 'bg-danger-bg border-danger-border'}`}>
             <div className={`w-[7px] h-[7px] rounded-full ${connected ? 'bg-green animate-pulse' : 'bg-danger'}`} />
             <span className={`text-[10px] font-bold ${connected ? 'text-green-dark' : 'text-danger'}`}>
@@ -163,7 +155,6 @@ export default function DashboardScreen() {
             </span>
           </div>
         </div>
-      </div>
 
       {bannerVisible && alerts.map(a => (
         <div key={a.id} className="animate-fade-in">
