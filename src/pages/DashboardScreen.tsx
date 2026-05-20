@@ -155,6 +155,8 @@ export default function DashboardScreen() {
             </span>
           </div>
         </div>
+      </div>
+
 
       {bannerVisible && alerts.map(a => (
         <div key={a.id} className="animate-fade-in">
