@@ -254,27 +254,49 @@ Deno.serve(async (req) => {
     const noPlantRe = /no\s*plant|not\s*a\s*plant|not\s*detected|cannot\s*identify|unidentified|does\s*not\s*(appear\s*to\s*)?contain\s*a?\s*plant|no\s*plant\s*visible|promotional|cartoon|illustration|game|character|monster|dragon/i;
     const geminiName = String(result?.plantName ?? "").trim();
     const geminiNotes = String(result?.notes ?? "");
+    const geminiCategory = String(result?.category ?? "").toLowerCase();
+    const geminiIdentified = result?.identified === true;
     const geminiSaysNoPlant =
+      geminiCategory === "none" ||
       !geminiName ||
       /^(n\/?a|na|none|unknown|null|undefined|-+)$/i.test(geminiName) ||
       noPlantRe.test(geminiName) ||
       noPlantRe.test(geminiNotes);
 
-    // Roboflow is authoritative for its trained plants (kangkong, mustasa, tomato).
-    if (roboflowHint && !geminiSaysNoPlant) {
-      result.plantName = roboflowHint.plant;
-      result.roboflow = roboflow!;
-    } else if (geminiSaysNoPlant) {
-      result.plantName = "No plant detected";
-      result.noPlant = true;
+    const clearNumericFields = () => {
       result.stage = "N/A" as any;
       result.daysToNext = 0;
       result.harvestDate = "N/A";
+      result.confidence = { Seedling: 0, Vegetative: 0, Fruiting: 0, Harvest: 0 };
+    };
+
+    if (geminiSaysNoPlant) {
+      // No plant at all
+      result.plantName = "No plant detected";
+      result.noPlant = true;
+      result.unidentified = true;
+      clearNumericFields();
       result.notes = result.notes || "Gemini did not detect a plant in the image.";
+      if (roboflow) result.roboflow = roboflow;
+    } else if (roboflowHint && geminiIdentified) {
+      // Both models agree there is a known plant — trust Roboflow's trained label
+      result.plantName = roboflowHint.plant;
+      result.roboflow = roboflow!;
+    } else if (!geminiIdentified) {
+      // Plant visible but species unknown — show generic category only
+      const generic =
+        geminiCategory === "tree" ? "Tree" :
+        geminiCategory === "flower" ? "Flower" :
+        geminiCategory === "fruit" ? "Fruit" : "Plant";
+      result.plantName = generic;
+      result.unidentified = true;
+      clearNumericFields();
+      result.notes = result.notes || `Detected a ${generic.toLowerCase()} but could not identify the species.`;
       if (roboflow) result.roboflow = roboflow;
     } else if (roboflow) {
       result.roboflow = roboflow;
     }
+
 
     return new Response(JSON.stringify({ result }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
