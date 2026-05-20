@@ -55,7 +55,7 @@ function historyToAnalysis(item: HistoryItem): PlantAnalysis {
 
 export default function DashboardScreen() {
   const { readings, connected, error: sensorError, loading, history } = useArduinoSensors();
-  const [alerts, setAlerts] = useState<{ id: string; msg: string; type: 'warning' | 'danger' }[]>([]);
+  const [alerts, setAlerts] = useState<import("@/hooks/useSensorAlerts").SensorAlert[]>([]);
   const [bannerVisible, setBannerVisible] = useState(false);
   const [graphOpen, setGraphOpen] = useState(false);
   const [graphTab, setGraphTab] = useState(0);
