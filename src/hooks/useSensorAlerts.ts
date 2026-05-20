@@ -9,12 +9,26 @@ export interface SensorAlert {
 
 export function computeAlerts(data: SensorReadings): SensorAlert[] {
   const a: SensorAlert[] = [];
-  if (data.temp.avg < OPTIMAL_RANGES.temp.min || data.temp.avg > OPTIMAL_RANGES.temp.max)
-    a.push({ id: "temp", msg: `⚠️ Temperature out of range: ${data.temp.avg}°C`, type: "warning" });
-  if (data.humidity < OPTIMAL_RANGES.humidity.min || data.humidity > OPTIMAL_RANGES.humidity.max)
-    a.push({ id: "humidity", msg: `⚠️ Humidity out of range: ${data.humidity}%`, type: "warning" });
-  if (data.ph < OPTIMAL_RANGES.ph.min || data.ph > OPTIMAL_RANGES.ph.max)
-    a.push({ id: "ph", msg: `⚠️ pH out of range: ${data.ph}`, type: "warning" });
+  const check = (
+    id: string,
+    label: string,
+    value: number,
+    unit: string,
+    range: { min: number; max: number },
+  ) => {
+    const span = range.max - range.min;
+    const critLow = range.min - span * 0.25;
+    const critHigh = range.max + span * 0.25;
+    if (value < critLow || value > critHigh) {
+      a.push({ id, msg: `🚨 ${label} critical: ${value}${unit} (safe ${range.min}–${range.max}${unit})`, type: "danger" });
+    } else if (value < range.min || value > range.max) {
+      a.push({ id, msg: `⚠️ ${label} out of range: ${value}${unit} (target ${range.min}–${range.max}${unit})`, type: "warning" });
+    }
+  };
+  check("temp", "Temperature", data.temp.avg, "°C", OPTIMAL_RANGES.temp);
+  check("humidity", "Humidity", data.humidity, "%", OPTIMAL_RANGES.humidity);
+  check("ph", "pH", data.ph, "", OPTIMAL_RANGES.ph);
+  check("tds", "TDS", data.tds, " ppm", OPTIMAL_RANGES.tds);
   return a;
 }
 

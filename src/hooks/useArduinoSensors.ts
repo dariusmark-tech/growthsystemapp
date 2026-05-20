@@ -47,6 +47,29 @@ function round(n: number, d = 1) {
   return Math.round(n * f) / f;
 }
 
+// Clamp raw sensor reads into physically sensible ranges so noisy/garbage
+// values from a flaky probe don't blow out the UI. Returns NaN for unusable
+// readings (Arduino sometimes pushes -127, 0xFFFF, or stringly numbers).
+function normalize(key: "temp" | "humidity" | "ph" | "tds", raw: unknown): number {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return NaN;
+  const ranges: Record<string, [number, number]> = {
+    temp: [-10, 60],
+    humidity: [0, 100],
+    ph: [0, 14],
+    tds: [0, 3000],
+  };
+  const [min, max] = ranges[key];
+  if (n < min || n > max) return NaN;
+  return n;
+}
+
+function avgValid(vals: number[]): number {
+  const ok = vals.filter((v) => Number.isFinite(v));
+  if (!ok.length) return NaN;
+  return ok.reduce((a, b) => a + b, 0) / ok.length;
+}
+
 // Singleton store shared across all consumers — one poll loop, one history buffer.
 const listeners = new Set<(s: ArduinoSensorState) => void>();
 let state: ArduinoSensorState = {
@@ -159,18 +182,28 @@ async function tick() {
       return;
     }
 
-    const t1 = Number(fb.dht1?.temperature ?? 0);
-    const t2 = Number(fb.dht2?.temperature ?? 0);
-    const t3 = Number(fb.dht3?.temperature ?? 0);
-    const h1 = Number(fb.dht1?.humidity ?? 0);
-    const h2 = Number(fb.dht2?.humidity ?? 0);
-    const h3 = Number(fb.dht3?.humidity ?? 0);
+    const t1 = normalize("temp", fb.dht1?.temperature);
+    const t2 = normalize("temp", fb.dht2?.temperature);
+    const t3 = normalize("temp", fb.dht3?.temperature);
+    const h1 = normalize("humidity", fb.dht1?.humidity);
+    const h2 = normalize("humidity", fb.dht2?.humidity);
+    const h3 = normalize("humidity", fb.dht3?.humidity);
+    const phN = normalize("ph", fb.ph?.value);
+    const tdsN = normalize("tds", fb.tds?.value);
+
+    const tempAvg = avgValid([t1, t2, t3]);
+    const humAvg = avgValid([h1, h2, h3]);
 
     const readings: SensorReadings = {
-      temp: { s1: round(t1), s2: round(t2), s3: round(t3), avg: round((t1 + t2 + t3) / 3, 1) },
-      humidity: round((h1 + h2 + h3) / 3, 1),
-      ph: round(Number(fb.ph?.value ?? 0), 2),
-      tds: Math.round(Number(fb.tds?.value ?? 0)),
+      temp: {
+        s1: Number.isFinite(t1) ? round(t1) : 0,
+        s2: Number.isFinite(t2) ? round(t2) : 0,
+        s3: Number.isFinite(t3) ? round(t3) : 0,
+        avg: Number.isFinite(tempAvg) ? round(tempAvg, 1) : 0,
+      },
+      humidity: Number.isFinite(humAvg) ? round(humAvg, 1) : 0,
+      ph: Number.isFinite(phN) ? round(phN, 2) : 0,
+      tds: Number.isFinite(tdsN) ? Math.round(tdsN) : 0,
     };
 
     const wallClockIso = new Date(seenAt).toISOString();
@@ -191,6 +224,11 @@ async function tick() {
       error: e instanceof Error ? e.message : "Failed to read sensors",
     });
   }
+}
+
+/** Force an immediate Firebase poll. Useful for a manual reconnect button. */
+export function refreshSensors() {
+  void tick();
 }
 
 function ensurePolling() {

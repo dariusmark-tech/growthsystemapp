@@ -237,11 +237,26 @@ Deno.serve(async (req) => {
     if (geminiSaysNoPlant) {
       result.plantName = "No plant detected";
       result.noPlant = true;
-      if (roboflow) result.roboflow = roboflow; // keep for debugging, but don't override name
+      result.stage = "N/A" as any;
+      result.daysToNext = 0;
+      result.harvestDate = "N/A";
+      result.notes = result.notes || "Gemini did not detect a plant in the image.";
+      if (roboflow) result.roboflow = roboflow; // keep for debugging, but don't override
     } else if (roboflow) {
-      // Override plant name with Roboflow's prediction (your custom model wins)
+      // Gemini is the source of truth. Roboflow is supplemental.
+      // Only adopt Roboflow's class if it corroborates Gemini's identification
+      // (case-insensitive substring match either direction). Otherwise we
+      // keep Gemini's plant name and stage, and only attach the Roboflow
+      // payload for evaluation metrics.
+      const g = String(result.plantName || "").trim().toLowerCase();
+      const r = String(roboflow.topClass || "").trim().toLowerCase();
+      const agree = g && r && (g === r || g.includes(r) || r.includes(g));
       result.roboflow = roboflow;
-      result.plantName = roboflow.topClass;
+      if (!agree) {
+        result.notes = (result.notes ? result.notes + " " : "") +
+          `Roboflow suggested "${roboflow.topClass}" but Gemini identified "${result.plantName}" — using Gemini.`;
+      }
+      // plantName stays as Gemini's prediction either way
     }
 
     return new Response(JSON.stringify({ result }), {
