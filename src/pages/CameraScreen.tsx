@@ -17,6 +17,7 @@ export default function CameraScreen() {
   const [showLiveCamera, setShowLiveCamera] = useState(false);
   const [result, setResult] = useState<PlantAnalysis | null>(null);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
+  const captureInputRef = useRef<HTMLInputElement | null>(null);
 
   const resetClassification = () => {
     setClassified(false);
@@ -38,7 +39,20 @@ export default function CameraScreen() {
     uploadInputRef.current?.click();
   };
 
-  const handleOpenLiveCamera = () => setShowLiveCamera(true);
+  const handleOpenLiveCamera = () => captureInputRef.current?.click();
+
+  const handleCaptureFromDevice = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImageUri(reader.result as string);
+      resetClassification();
+    };
+    reader.onerror = () => toast.error("Could not read the captured image");
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -184,6 +198,14 @@ export default function CameraScreen() {
         accept="image/*"
         className="hidden"
         onChange={handleFileChange}
+      />
+      <input
+        ref={captureInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleCaptureFromDevice}
       />
 
       <div className="w-full h-[200px] bg-card-alt rounded-2xl border-[1.5px] border-dashed border-border mb-4 overflow-hidden relative flex items-center justify-center">
