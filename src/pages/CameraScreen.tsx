@@ -199,6 +199,14 @@ export default function CameraScreen() {
         className="hidden"
         onChange={handleFileChange}
       />
+      <input
+        ref={captureInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleCaptureFromDevice}
+      />
 
       <div className="w-full h-[200px] bg-card-alt rounded-2xl border-[1.5px] border-dashed border-border mb-4 overflow-hidden relative flex items-center justify-center">
         {imageUri ? (
