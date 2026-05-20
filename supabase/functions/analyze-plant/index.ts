@@ -80,16 +80,24 @@ async function callRoboflow(base64NoPrefix: string): Promise<RoboflowResult | nu
   return null;
 }
 
-async function callGemini(dataUrl: string) {
+async function callGemini(dataUrl: string, roboflowHint?: { plant: string; confidence: number } | null) {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   if (!LOVABLE_API_KEY) throw new Error("AI not configured");
+
+  const hintText = roboflowHint
+    ? `\n\nIMPORTANT: A specialized Roboflow classifier trained specifically on kangkong, mustasa, and tomato identified this plant as "${roboflowHint.plant}" with ${roboflowHint.confidence}% confidence. Trust this identification — set plantName to "${roboflowHint.plant}" and tailor the growth stage, nutrients, days-to-next, harvest date, and notes to that specific plant.`
+    : "";
 
   const systemPrompt = `You are an expert agricultural botanist and plant growth analyst.
 Analyze the plant in the image and classify it. Identify the species (or best guess), the
 current growth stage, your confidence in each possible stage, an estimate of days until the
 next stage, and a predicted harvest date (assume today is ${new Date().toISOString().slice(0, 10)}).
 Also recommend 3 key nutrient adjustments (N, P, K) with current vs target ppm based on the
-visible health and growth stage. Be realistic — if you can't see a plant, say so.`;
+visible health and growth stage. Be realistic — if you can't see a plant, say so.${hintText}`;
+
+  const userText = roboflowHint
+    ? `Analyze this plant photo. The Roboflow classifier identified it as "${roboflowHint.plant}" (${roboflowHint.confidence}% confidence) — use this as the plant identity and provide details for it.`
+    : "Analyze this plant photo.";
 
   const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -104,7 +112,7 @@ visible health and growth stage. Be realistic — if you can't see a plant, say 
         {
           role: "user",
           content: [
-            { type: "text", text: "Analyze this plant photo." },
+            { type: "text", text: userText },
             { type: "image_url", image_url: { url: dataUrl } },
           ],
         },
@@ -194,14 +202,26 @@ Deno.serve(async (req) => {
       : `data:image/jpeg;base64,${imageBase64}`;
     const base64NoPrefix = dataUrl.includes(",") ? dataUrl.split(",")[1] : dataUrl;
 
-    // Run Roboflow + Gemini in parallel
-    const [roboflowRes, geminiRes] = await Promise.allSettled([
-      callRoboflow(base64NoPrefix),
-      callGemini(dataUrl),
-    ]);
+    // Run Roboflow first. If it confidently identifies one of its trained plants
+    // (kangkong, mustasa, tomato), use that as a hint so Gemini tailors details.
+    const roboflow = await callRoboflow(base64NoPrefix).catch((e) => {
+      console.warn("Roboflow failed:", e);
+      return null;
+    });
 
-    if (geminiRes.status === "rejected") {
-      const err: any = geminiRes.reason;
+    const TRAINED_PLANTS = /(kangkong|kang[-\s]?kong|water\s*spinach|ipomoea|mustasa|mustard|brassica|tomato|solanum\s*lycopersicum)/i;
+    const ROBOFLOW_CONFIDENCE_THRESHOLD = 70;
+    const roboflowHint =
+      roboflow &&
+      roboflow.topConfidence >= ROBOFLOW_CONFIDENCE_THRESHOLD &&
+      TRAINED_PLANTS.test(roboflow.topClass)
+        ? { plant: roboflow.topClass, confidence: roboflow.topConfidence }
+        : null;
+
+    let geminiResult: any;
+    try {
+      geminiResult = await callGemini(dataUrl, roboflowHint);
+    } catch (err: any) {
       if (err?.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limit exceeded, please try again shortly." }), {
           status: 429,
@@ -221,10 +241,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    const result = geminiRes.value;
-    const roboflow = roboflowRes.status === "fulfilled" ? roboflowRes.value : null;
+    const result = geminiResult;
 
-    // Detect Gemini's "no plant" verdict from name or notes so Roboflow doesn't override it.
     const noPlantRe = /no\s*plant|not\s*a\s*plant|not\s*detected|cannot\s*identify|unidentified|does\s*not\s*(appear\s*to\s*)?contain\s*a?\s*plant|no\s*plant\s*visible|promotional|cartoon|illustration|game|character|monster|dragon/i;
     const geminiName = String(result?.plantName ?? "").trim();
     const geminiNotes = String(result?.notes ?? "");
@@ -234,27 +252,20 @@ Deno.serve(async (req) => {
       noPlantRe.test(geminiName) ||
       noPlantRe.test(geminiNotes);
 
-    if (geminiSaysNoPlant) {
+    // Roboflow is authoritative for its trained plants (kangkong, mustasa, tomato).
+    if (roboflowHint && !geminiSaysNoPlant) {
+      result.plantName = roboflowHint.plant;
+      result.roboflow = roboflow!;
+    } else if (geminiSaysNoPlant) {
       result.plantName = "No plant detected";
       result.noPlant = true;
       result.stage = "N/A" as any;
       result.daysToNext = 0;
       result.harvestDate = "N/A";
       result.notes = result.notes || "Gemini did not detect a plant in the image.";
-      if (roboflow) result.roboflow = roboflow; // keep for debugging, but don't override
+      if (roboflow) result.roboflow = roboflow;
     } else if (roboflow) {
-      // Gemini is the source of truth. Roboflow is supplemental.
-      // Only adopt Roboflow's class if it corroborates Gemini's identification
-      // (case-insensitive substring match either direction). Otherwise we
-      // keep Gemini's plant name and stage, and only attach the Roboflow
-      // payload for evaluation metrics.
-      const g = String(result.plantName || "").trim().toLowerCase();
-      const r = String(roboflow.topClass || "").trim().toLowerCase();
-      const agree = g && r && (g === r || g.includes(r) || r.includes(g));
       result.roboflow = roboflow;
-      // Gemini is authoritative — do not surface Roboflow's disagreement in user-facing notes.
-      void agree;
-      // plantName stays as Gemini's prediction either way
     }
 
     return new Response(JSON.stringify({ result }), {
