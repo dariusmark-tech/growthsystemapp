@@ -64,7 +64,7 @@ export function FullDetailsPage({
             <p className="text-xs font-bold text-text-muted mb-2">Details:</p>
             {[
               ["Plant classification", result.plantName],
-              ["Growth stage", isNoPlantResult(result) ? "N/A" : result.stage],
+              ["Growth stage", shouldHideAnalytics(result) ? "N/A" : result.stage],
             ].map(([key, val]) => (
               <div key={key} className="flex justify-between items-center py-1.5 border-b border-border">
                 <span className="text-xs text-text-muted">{key}</span>
@@ -78,7 +78,7 @@ export function FullDetailsPage({
           )}
         </AppCard>
 
-        {!isNoPlantResult(result) && (() => {
+        {!shouldHideAnalytics(result) && (() => {
           const rb = result.roboflow;
           // Use the strongest available signal: top stage confidence from Gemini
           const stageConfs = result.confidence ? Object.values(result.confidence).map(Number) : [];
@@ -163,7 +163,7 @@ export function FullDetailsPage({
           );
         })()}
 
-        {!isNoPlantResult(result) && (
+        {!shouldHideAnalytics(result) && (
         <AppCard className="mb-3">
           <CardLabel>Growth Prediction Analysis</CardLabel>
           <div className="flex items-start justify-between my-3">
