@@ -80,16 +80,24 @@ async function callRoboflow(base64NoPrefix: string): Promise<RoboflowResult | nu
   return null;
 }
 
-async function callGemini(dataUrl: string) {
+async function callGemini(dataUrl: string, roboflowHint?: { plant: string; confidence: number } | null) {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   if (!LOVABLE_API_KEY) throw new Error("AI not configured");
+
+  const hintText = roboflowHint
+    ? `\n\nIMPORTANT: A specialized Roboflow classifier trained specifically on kangkong, mustasa, and tomato identified this plant as "${roboflowHint.plant}" with ${roboflowHint.confidence}% confidence. Trust this identification — set plantName to "${roboflowHint.plant}" and tailor the growth stage, nutrients, days-to-next, harvest date, and notes to that specific plant.`
+    : "";
 
   const systemPrompt = `You are an expert agricultural botanist and plant growth analyst.
 Analyze the plant in the image and classify it. Identify the species (or best guess), the
 current growth stage, your confidence in each possible stage, an estimate of days until the
 next stage, and a predicted harvest date (assume today is ${new Date().toISOString().slice(0, 10)}).
 Also recommend 3 key nutrient adjustments (N, P, K) with current vs target ppm based on the
-visible health and growth stage. Be realistic — if you can't see a plant, say so.`;
+visible health and growth stage. Be realistic — if you can't see a plant, say so.${hintText}`;
+
+  const userText = roboflowHint
+    ? `Analyze this plant photo. The Roboflow classifier identified it as "${roboflowHint.plant}" (${roboflowHint.confidence}% confidence) — use this as the plant identity and provide details for it.`
+    : "Analyze this plant photo.";
 
   const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -104,7 +112,7 @@ visible health and growth stage. Be realistic — if you can't see a plant, say 
         {
           role: "user",
           content: [
-            { type: "text", text: "Analyze this plant photo." },
+            { type: "text", text: userText },
             { type: "image_url", image_url: { url: dataUrl } },
           ],
         },
