@@ -173,13 +173,8 @@ async function tick() {
       return;
     }
 
-    // Throttle sensor data + graph updates to every 5s, even though we poll
-    // every 1s for fast offline detection. Always run the first update.
-    if (state.readings !== null && nowMs - lastDataUpdateAt < DATA_UPDATE_MS) {
-      // Already connected and recent — skip refreshing readings/history this tick
-      if (!state.connected) setState({ connected: true, error: null });
-      return;
-    }
+
+
 
     const t1 = normalize("temp", fb.dht1?.temperature);
     const t2 = normalize("temp", fb.dht2?.temperature);
