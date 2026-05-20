@@ -12,6 +12,12 @@ const isNoPlantResult = (r: PlantAnalysis) => {
   if (r.notes && NO_PLANT_RE.test(r.notes)) return true;
   return false;
 };
+const isUnidentifiedResult = (r: PlantAnalysis) => {
+  if ((r as any)?.unidentified === true) return true;
+  const n = (r.plantName || "").trim().toLowerCase();
+  return /^(plant|tree|flower|fruit)$/.test(n);
+};
+const shouldHideAnalytics = (r: PlantAnalysis) => isNoPlantResult(r) || isUnidentifiedResult(r);
 
 export function FullDetailsPage({
   result,
