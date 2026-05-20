@@ -252,10 +252,8 @@ Deno.serve(async (req) => {
       const r = String(roboflow.topClass || "").trim().toLowerCase();
       const agree = g && r && (g === r || g.includes(r) || r.includes(g));
       result.roboflow = roboflow;
-      if (!agree) {
-        result.notes = (result.notes ? result.notes + " " : "") +
-          `Roboflow suggested "${roboflow.topClass}" but Gemini identified "${result.plantName}" — using Gemini.`;
-      }
+      // Gemini is authoritative — do not surface Roboflow's disagreement in user-facing notes.
+      void agree;
       // plantName stays as Gemini's prediction either way
     }
 

@@ -82,7 +82,8 @@ export function FullDetailsPage({
           const hasGemini = !!result.plantName;
           if (!hasRoboflow && !hasGemini) return null;
 
-          const prediction = hasRoboflow ? rb!.topClass : result.plantName;
+          // Gemini is the source of truth — always show Gemini's plant name as the prediction.
+          const prediction = result.plantName;
           const rbConf = hasRoboflow ? rb!.topConfidence : 0;
           const gmConf = hasGemini ? geminiPct : 0;
 
