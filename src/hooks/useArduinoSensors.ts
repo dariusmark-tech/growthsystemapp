@@ -231,26 +231,6 @@ export function refreshSensors() {
   void tick();
 }
 
-    const wallClockIso = new Date(seenAt).toISOString();
-    lastDataUpdateAt = nowMs;
-
-    setState({
-      readings,
-      connected: true,
-      lastUpdated: wallClockIso,
-      error: null,
-      loading: false,
-    });
-    if (wallClockIso) pushHistory(readings, wallClockIso);
-  } catch (e) {
-    setState({
-      loading: false,
-      connected: false,
-      error: e instanceof Error ? e.message : "Failed to read sensors",
-    });
-  }
-}
-
 function ensurePolling() {
   if (pollHandle) return;
   void tick();
