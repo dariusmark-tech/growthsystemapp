@@ -55,7 +55,7 @@ function historyToAnalysis(item: HistoryItem): PlantAnalysis {
 
 export default function DashboardScreen() {
   const { readings, connected, error: sensorError, loading, history } = useArduinoSensors();
-  const [alerts, setAlerts] = useState<{ id: string; msg: string; type: 'warning' | 'danger' }[]>([]);
+  const [alerts, setAlerts] = useState<import("@/hooks/useSensorAlerts").SensorAlert[]>([]);
   const [bannerVisible, setBannerVisible] = useState(false);
   const [graphOpen, setGraphOpen] = useState(false);
   const [graphTab, setGraphTab] = useState(0);
@@ -168,7 +168,7 @@ export default function DashboardScreen() {
 
       {bannerVisible && alerts.map(a => (
         <div key={a.id} className="animate-fade-in">
-          <AlertBanner message={a.msg} type={a.type} />
+          <AlertBanner message={a.msg} type={a.type} analysis={a.analysis} guide={a.guide} />
         </div>
       ))}
 

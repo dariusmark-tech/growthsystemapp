@@ -78,16 +78,30 @@ export function SensorBar({ value, max, color, className }: SensorBarProps) {
 interface AlertBannerProps {
   message: string;
   type: 'warning' | 'danger';
+  analysis?: string;
+  guide?: string[];
 }
 
-export function AlertBanner({ message, type }: AlertBannerProps) {
+export function AlertBanner({ message, type, analysis, guide }: AlertBannerProps) {
   return (
     <div className={cn(
       "rounded-lg px-4 py-3 mb-3 text-sm font-semibold border",
       type === 'warning' && "bg-warning-bg border-warning-border text-warning",
       type === 'danger' && "bg-danger-bg border-danger-border text-danger",
     )}>
-      {message}
+      <p>{message}</p>
+      {analysis && (
+        <p className="mt-1 text-[12px] font-medium opacity-90">{analysis}</p>
+      )}
+      {guide && guide.length > 0 && (
+        <div className="mt-2">
+          <p className="text-[11px] font-bold uppercase tracking-wide opacity-80">Adjustment guide</p>
+          <ol className="mt-1 ml-4 list-decimal text-[12px] font-medium space-y-0.5 opacity-90">
+            {guide.map((step, i) => <li key={i}>{step}</li>)}
+          </ol>
+        </div>
+      )}
     </div>
   );
 }
+
