@@ -17,6 +17,7 @@ export default function CameraScreen() {
   const [showLiveCamera, setShowLiveCamera] = useState(false);
   const [result, setResult] = useState<PlantAnalysis | null>(null);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
+  const captureInputRef = useRef<HTMLInputElement | null>(null);
 
   const resetClassification = () => {
     setClassified(false);
