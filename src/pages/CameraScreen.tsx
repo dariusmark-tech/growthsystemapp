@@ -205,21 +205,18 @@ export default function CameraScreen() {
 
       <div className="flex gap-2.5 mb-4">
         <button
-          className="flex-1 bg-green-dark rounded-lg py-2.5 flex flex-row items-center justify-center gap-2"
+          className="flex-1 bg-card border border-green-dark rounded-full py-3 flex flex-row items-center justify-center gap-2 active:scale-[0.98] transition-transform"
           onClick={() => void handleOpenLiveCamera()}
         >
-          <div className="w-5 h-5 rounded-full border-[1.5px] border-white flex items-center justify-center">
-            <div className="w-2.5 h-2.5 rounded-full bg-white" />
-          </div>
-          <span className="text-primary-foreground font-bold text-[12px]">Capture</span>
+          <span className="text-green-dark font-bold text-[13px]">Open device camera</span>
         </button>
 
         <button
-          className="flex-1 bg-card-alt border border-border rounded-lg py-2.5 flex flex-row items-center justify-center gap-2"
+          className="flex-1 bg-card-alt border border-border rounded-full py-3 flex flex-row items-center justify-center gap-2 active:scale-[0.98] transition-transform"
           onClick={handleUploadPicture}
         >
           <Upload size={16} className="text-green-dark" strokeWidth={2.5} />
-          <span className="text-text-primary font-bold text-[12px]">Upload</span>
+          <span className="text-text-primary font-bold text-[13px]">Upload</span>
         </button>
       </div>
 
