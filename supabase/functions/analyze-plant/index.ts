@@ -89,15 +89,21 @@ async function callGemini(dataUrl: string, roboflowHint?: { plant: string; confi
     : "";
 
   const systemPrompt = `You are an expert agricultural botanist and plant growth analyst.
-Analyze the plant in the image and classify it. Identify the species (or best guess), the
-current growth stage, your confidence in each possible stage, an estimate of days until the
-next stage, and a predicted harvest date (assume today is ${new Date().toISOString().slice(0, 10)}).
-Also recommend 3 key nutrient adjustments (N, P, K) with current vs target ppm based on the
-visible health and growth stage. Be realistic — if you can't see a plant, say so.${hintText}`;
+Analyze the image. First decide if the subject is a real plant, tree, flower, fruit, or none.
+Then decide if you can CONFIDENTLY identify the specific species/variety.
+
+Rules:
+- If you cannot see any plant at all, set category="none" and identified=false.
+- If you see a plant/tree/flower/fruit but CANNOT confidently identify the species, set identified=false and set plantName to the generic category capitalized ("Plant", "Tree", "Flower", "Fruit"). Do NOT guess a species.
+- Only set identified=true when you are highly confident of the specific species/variety.
+- When identified=false, still fill stage/confidence/daysToNext/harvestDate/nutrients with placeholder zeros — the app will hide them.
+- When identified=true, provide realistic growth stage, days-to-next, harvest date (assume today is ${new Date().toISOString().slice(0, 10)}), and 3 nutrient adjustments (N, P, K).${hintText}
+
+Be conservative — it is better to return identified=false than to invent a wrong species.`;
 
   const userText = roboflowHint
-    ? `Analyze this plant photo. The Roboflow classifier identified it as "${roboflowHint.plant}" (${roboflowHint.confidence}% confidence) — use this as the plant identity and provide details for it.`
-    : "Analyze this plant photo.";
+    ? `Analyze this photo. A Roboflow classifier (trained only on kangkong, mustasa, tomato) suggested "${roboflowHint.plant}" at ${roboflowHint.confidence}% confidence. Only accept this identity if the image visually matches that plant; otherwise IGNORE the hint and answer honestly (including identified=false if unsure).`
+    : "Analyze this photo.";
 
   const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -127,6 +133,8 @@ visible health and growth stage. Be realistic — if you can't see a plant, say 
               type: "object",
               properties: {
                 plantName: { type: "string" },
+                category: { type: "string", enum: ["plant", "tree", "flower", "fruit", "none"] },
+                identified: { type: "boolean", description: "True only if confident about specific species." },
                 stage: { type: "string", enum: ["Seedling", "Vegetative", "Fruiting", "Harvest"] },
                 confidence: {
                   type: "object",
@@ -157,7 +165,7 @@ visible health and growth stage. Be realistic — if you can't see a plant, say 
                 },
                 notes: { type: "string" },
               },
-              required: ["plantName", "stage", "confidence", "daysToNext", "harvestDate", "nutrients"],
+              required: ["plantName", "category", "identified", "stage", "confidence", "daysToNext", "harvestDate", "nutrients"],
               additionalProperties: false,
             },
           },
