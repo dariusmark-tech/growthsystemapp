@@ -47,6 +47,29 @@ function round(n: number, d = 1) {
   return Math.round(n * f) / f;
 }
 
+// Clamp raw sensor reads into physically sensible ranges so noisy/garbage
+// values from a flaky probe don't blow out the UI. Returns NaN for unusable
+// readings (Arduino sometimes pushes -127, 0xFFFF, or stringly numbers).
+function normalize(key: "temp" | "humidity" | "ph" | "tds", raw: unknown): number {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return NaN;
+  const ranges: Record<string, [number, number]> = {
+    temp: [-10, 60],
+    humidity: [0, 100],
+    ph: [0, 14],
+    tds: [0, 3000],
+  };
+  const [min, max] = ranges[key];
+  if (n < min || n > max) return NaN;
+  return n;
+}
+
+function avgValid(vals: number[]): number {
+  const ok = vals.filter((v) => Number.isFinite(v));
+  if (!ok.length) return NaN;
+  return ok.reduce((a, b) => a + b, 0) / ok.length;
+}
+
 // Singleton store shared across all consumers — one poll loop, one history buffer.
 const listeners = new Set<(s: ArduinoSensorState) => void>();
 let state: ArduinoSensorState = {
