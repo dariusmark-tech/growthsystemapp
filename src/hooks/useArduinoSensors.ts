@@ -182,19 +182,54 @@ async function tick() {
       return;
     }
 
-    const t1 = Number(fb.dht1?.temperature ?? 0);
-    const t2 = Number(fb.dht2?.temperature ?? 0);
-    const t3 = Number(fb.dht3?.temperature ?? 0);
-    const h1 = Number(fb.dht1?.humidity ?? 0);
-    const h2 = Number(fb.dht2?.humidity ?? 0);
-    const h3 = Number(fb.dht3?.humidity ?? 0);
+    const t1 = normalize("temp", fb.dht1?.temperature);
+    const t2 = normalize("temp", fb.dht2?.temperature);
+    const t3 = normalize("temp", fb.dht3?.temperature);
+    const h1 = normalize("humidity", fb.dht1?.humidity);
+    const h2 = normalize("humidity", fb.dht2?.humidity);
+    const h3 = normalize("humidity", fb.dht3?.humidity);
+    const phN = normalize("ph", fb.ph?.value);
+    const tdsN = normalize("tds", fb.tds?.value);
+
+    const tempAvg = avgValid([t1, t2, t3]);
+    const humAvg = avgValid([h1, h2, h3]);
 
     const readings: SensorReadings = {
-      temp: { s1: round(t1), s2: round(t2), s3: round(t3), avg: round((t1 + t2 + t3) / 3, 1) },
-      humidity: round((h1 + h2 + h3) / 3, 1),
-      ph: round(Number(fb.ph?.value ?? 0), 2),
-      tds: Math.round(Number(fb.tds?.value ?? 0)),
+      temp: {
+        s1: Number.isFinite(t1) ? round(t1) : 0,
+        s2: Number.isFinite(t2) ? round(t2) : 0,
+        s3: Number.isFinite(t3) ? round(t3) : 0,
+        avg: Number.isFinite(tempAvg) ? round(tempAvg, 1) : 0,
+      },
+      humidity: Number.isFinite(humAvg) ? round(humAvg, 1) : 0,
+      ph: Number.isFinite(phN) ? round(phN, 2) : 0,
+      tds: Number.isFinite(tdsN) ? Math.round(tdsN) : 0,
     };
+
+    const wallClockIso = new Date(seenAt).toISOString();
+    lastDataUpdateAt = nowMs;
+
+    setState({
+      readings,
+      connected: true,
+      lastUpdated: wallClockIso,
+      error: null,
+      loading: false,
+    });
+    if (wallClockIso) pushHistory(readings, wallClockIso);
+  } catch (e) {
+    setState({
+      loading: false,
+      connected: false,
+      error: e instanceof Error ? e.message : "Failed to read sensors",
+    });
+  }
+}
+
+/** Force an immediate Firebase poll. Useful for a manual reconnect button. */
+export function refreshSensors() {
+  void tick();
+}
 
     const wallClockIso = new Date(seenAt).toISOString();
     lastDataUpdateAt = nowMs;
