@@ -36,8 +36,7 @@ export interface ArduinoSensorState {
   logs: ArduinoLogEntry[];
 }
 
-const POLL_MS = 1000; // Poll every 1s for fast offline detection
-const DATA_UPDATE_MS = 5000; // Only refresh readings/graphs every 5s
+const POLL_MS = 1000; // Poll every 1s
 const STALE_MS = 7_000; // Arduino writes about every 5s
 const HISTORY_LIMIT = 30;
 const LOG_LIMIT = 50;
@@ -84,7 +83,6 @@ let state: ArduinoSensorState = {
 let pollHandle: ReturnType<typeof setInterval> | null = null;
 let lastSeenRaw: string | null = null;
 let lastSeenAt = 0;
-let lastDataUpdateAt = 0;
 let lifecycleListenersAttached = false;
 
 function setState(patch: Partial<ArduinoSensorState>) {
@@ -174,13 +172,8 @@ async function tick() {
       return;
     }
 
-    // Throttle sensor data + graph updates to every 5s, even though we poll
-    // every 1s for fast offline detection. Always run the first update.
-    if (state.readings !== null && nowMs - lastDataUpdateAt < DATA_UPDATE_MS) {
-      // Already connected and recent — skip refreshing readings/history this tick
-      if (!state.connected) setState({ connected: true, error: null });
-      return;
-    }
+
+
 
     const t1 = normalize("temp", fb.dht1?.temperature);
     const t2 = normalize("temp", fb.dht2?.temperature);
@@ -207,7 +200,7 @@ async function tick() {
     };
 
     const wallClockIso = new Date(seenAt).toISOString();
-    lastDataUpdateAt = nowMs;
+
 
     setState({
       readings,
@@ -226,10 +219,6 @@ async function tick() {
   }
 }
 
-/** Force an immediate Firebase poll. Useful for a manual reconnect button. */
-export function refreshSensors() {
-  void tick();
-}
 
 function ensurePolling() {
   if (pollHandle) return;
