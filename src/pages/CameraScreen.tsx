@@ -205,10 +205,10 @@ export default function CameraScreen() {
 
       <div className="flex gap-2.5 mb-4">
         <button
-          className="flex-1 bg-card border border-green-dark rounded-full py-3 flex flex-row items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+          className="flex-1 bg-green-dark border border-green-dark rounded-full py-3 flex flex-row items-center justify-center gap-2 active:scale-[0.98] transition-transform"
           onClick={() => void handleOpenLiveCamera()}
         >
-          <span className="text-green-dark font-bold text-[13px]">Open device camera</span>
+          <span className="text-primary-foreground font-bold text-[13px]">Capture</span>
         </button>
 
         <button
