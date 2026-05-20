@@ -83,7 +83,6 @@ let state: ArduinoSensorState = {
 let pollHandle: ReturnType<typeof setInterval> | null = null;
 let lastSeenRaw: string | null = null;
 let lastSeenAt = 0;
-let lastDataUpdateAt = 0;
 let lifecycleListenersAttached = false;
 
 function setState(patch: Partial<ArduinoSensorState>) {
@@ -201,7 +200,7 @@ async function tick() {
     };
 
     const wallClockIso = new Date(seenAt).toISOString();
-    lastDataUpdateAt = nowMs;
+
 
     setState({
       readings,
@@ -220,10 +219,6 @@ async function tick() {
   }
 }
 
-/** Force an immediate Firebase poll. Useful for a manual reconnect button. */
-export function refreshSensors() {
-  void tick();
-}
 
 function ensurePolling() {
   if (pollHandle) return;
