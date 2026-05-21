@@ -12,12 +12,6 @@ const isNoPlantResult = (r: PlantAnalysis) => {
   if (r.notes && NO_PLANT_RE.test(r.notes)) return true;
   return false;
 };
-const isUnidentifiedResult = (r: PlantAnalysis) => {
-  if ((r as any)?.unidentified === true) return true;
-  const n = (r.plantName || "").trim().toLowerCase();
-  return /^(plant|tree|flower|fruit)$/.test(n);
-};
-const shouldHideAnalytics = (r: PlantAnalysis) => isNoPlantResult(r) || isUnidentifiedResult(r);
 
 export function FullDetailsPage({
   result,
@@ -64,7 +58,7 @@ export function FullDetailsPage({
             <p className="text-xs font-bold text-text-muted mb-2">Details:</p>
             {[
               ["Plant classification", result.plantName],
-              ["Growth stage", shouldHideAnalytics(result) ? "N/A" : result.stage],
+              ["Growth stage", isNoPlantResult(result) ? "N/A" : result.stage],
             ].map(([key, val]) => (
               <div key={key} className="flex justify-between items-center py-1.5 border-b border-border">
                 <span className="text-xs text-text-muted">{key}</span>
@@ -78,7 +72,7 @@ export function FullDetailsPage({
           )}
         </AppCard>
 
-        {!shouldHideAnalytics(result) && (() => {
+        {!isNoPlantResult(result) && (() => {
           const rb = result.roboflow;
           // Use the strongest available signal: top stage confidence from Gemini
           const stageConfs = result.confidence ? Object.values(result.confidence).map(Number) : [];
@@ -88,8 +82,7 @@ export function FullDetailsPage({
           const hasGemini = !!result.plantName;
           if (!hasRoboflow && !hasGemini) return null;
 
-          // Gemini is the source of truth — always show Gemini's plant name as the prediction.
-          const prediction = result.plantName;
+          const prediction = hasRoboflow ? rb!.topClass : result.plantName;
           const rbConf = hasRoboflow ? rb!.topConfidence : 0;
           const gmConf = hasGemini ? geminiPct : 0;
 
@@ -163,7 +156,7 @@ export function FullDetailsPage({
           );
         })()}
 
-        {!shouldHideAnalytics(result) && (
+        {!isNoPlantResult(result) && (
         <AppCard className="mb-3">
           <CardLabel>Growth Prediction Analysis</CardLabel>
           <div className="flex items-start justify-between my-3">

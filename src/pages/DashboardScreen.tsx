@@ -54,7 +54,7 @@ function historyToAnalysis(item: HistoryItem): PlantAnalysis {
 
 export default function DashboardScreen() {
   const { readings, connected, error: sensorError, loading, history } = useArduinoSensors();
-  const [alerts, setAlerts] = useState<import("@/hooks/useSensorAlerts").SensorAlert[]>([]);
+  const [alerts, setAlerts] = useState<{ id: string; msg: string; type: 'warning' | 'danger' }[]>([]);
   const [bannerVisible, setBannerVisible] = useState(false);
   const [graphOpen, setGraphOpen] = useState(false);
   const [graphTab, setGraphTab] = useState(0);
@@ -147,20 +147,17 @@ export default function DashboardScreen() {
           <img src={logo} alt="G.R.O.W.T.H." className="w-9 h-9 object-contain" />
           <h1 className="text-[28px] font-extrabold text-text-primary tracking-tight">Dashboard</h1>
         </div>
-        <div className="flex items-center gap-2">
-          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${connected ? 'bg-green-light border-border-high' : 'bg-danger-bg border-danger-border'}`}>
-            <div className={`w-[7px] h-[7px] rounded-full ${connected ? 'bg-green animate-pulse' : 'bg-danger'}`} />
-            <span className={`text-[10px] font-bold ${connected ? 'text-green-dark' : 'text-danger'}`}>
-              {connected ? 'Arduino Live' : 'Offline'}
-            </span>
-          </div>
+        <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${connected ? 'bg-green-light border-border-high' : 'bg-danger-bg border-danger-border'}`}>
+          <div className={`w-[7px] h-[7px] rounded-full ${connected ? 'bg-green animate-pulse' : 'bg-danger'}`} />
+          <span className={`text-[10px] font-bold ${connected ? 'text-green-dark' : 'text-danger'}`}>
+            {connected ? 'Arduino Live' : 'Offline'}
+          </span>
         </div>
       </div>
 
-
       {bannerVisible && alerts.map(a => (
         <div key={a.id} className="animate-fade-in">
-          <AlertBanner message={a.msg} type={a.type} analysis={a.analysis} guide={a.guide} />
+          <AlertBanner message={a.msg} type={a.type} />
         </div>
       ))}
 
