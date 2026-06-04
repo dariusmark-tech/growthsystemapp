@@ -17,6 +17,7 @@ export default function CameraScreen() {
   const [showLiveCamera, setShowLiveCamera] = useState(false);
   const [result, setResult] = useState<PlantAnalysis | null>(null);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
+  const captureInputRef = useRef<HTMLInputElement | null>(null);
 
   const resetClassification = () => {
     setClassified(false);
@@ -38,7 +39,20 @@ export default function CameraScreen() {
     uploadInputRef.current?.click();
   };
 
-  const handleOpenLiveCamera = () => setShowLiveCamera(true);
+  const handleOpenLiveCamera = () => captureInputRef.current?.click();
+
+  const handleCaptureFromDevice = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImageUri(reader.result as string);
+      resetClassification();
+    };
+    reader.onerror = () => toast.error("Could not read the captured image");
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -185,6 +199,14 @@ export default function CameraScreen() {
         className="hidden"
         onChange={handleFileChange}
       />
+      <input
+        ref={captureInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleCaptureFromDevice}
+      />
 
       <div className="w-full h-[200px] bg-card-alt rounded-2xl border-[1.5px] border-dashed border-border mb-4 overflow-hidden relative flex items-center justify-center">
         {imageUri ? (
@@ -205,21 +227,18 @@ export default function CameraScreen() {
 
       <div className="flex gap-2.5 mb-4">
         <button
-          className="flex-1 bg-green-dark rounded-lg py-2.5 flex flex-row items-center justify-center gap-2"
+          className="flex-1 bg-green-dark border border-green-dark rounded-full py-3 flex flex-row items-center justify-center gap-2 active:scale-[0.98] transition-transform"
           onClick={() => void handleOpenLiveCamera()}
         >
-          <div className="w-5 h-5 rounded-full border-[1.5px] border-white flex items-center justify-center">
-            <div className="w-2.5 h-2.5 rounded-full bg-white" />
-          </div>
-          <span className="text-primary-foreground font-bold text-[12px]">Capture</span>
+          <span className="text-primary-foreground font-bold text-[13px]">Capture</span>
         </button>
 
         <button
-          className="flex-1 bg-card-alt border border-border rounded-lg py-2.5 flex flex-row items-center justify-center gap-2"
+          className="flex-1 bg-card-alt border border-border rounded-full py-3 flex flex-row items-center justify-center gap-2 active:scale-[0.98] transition-transform"
           onClick={handleUploadPicture}
         >
           <Upload size={16} className="text-green-dark" strokeWidth={2.5} />
-          <span className="text-text-primary font-bold text-[12px]">Upload</span>
+          <span className="text-text-primary font-bold text-[13px]">Upload</span>
         </button>
       </div>
 
