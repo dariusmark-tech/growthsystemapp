@@ -292,7 +292,7 @@ async function tick() {
       error: null,
       loading: false,
     });
-    if (wallClockIso) pushHistory(readings, wallClockIso);
+    if (wallClockIso) pushHistory(readings, wallClockIso, rawSample);
   } catch (e) {
     setState({
       loading: false,
