@@ -241,17 +241,34 @@ async function tick() {
       return;
     }
 
-    const t1 = normalize("temp", fb.dht1?.temperature);
-    const t2 = normalize("temp", fb.dht2?.temperature);
-    const t3 = normalize("temp", fb.dht3?.temperature);
-    const h1 = normalize("humidity", fb.dht1?.humidity);
-    const h2 = normalize("humidity", fb.dht2?.humidity);
-    const h3 = normalize("humidity", fb.dht3?.humidity);
-    const phN = normalize("ph", fb.ph?.value);
-    const tdsN = normalize("tds", fb.tds?.value);
+    const ct1 = classifyRaw("temp", fb.dht1?.temperature);
+    const ct2 = classifyRaw("temp", fb.dht2?.temperature);
+    const ct3 = classifyRaw("temp", fb.dht3?.temperature);
+    const ch1 = classifyRaw("humidity", fb.dht1?.humidity);
+    const ch2 = classifyRaw("humidity", fb.dht2?.humidity);
+    const ch3 = classifyRaw("humidity", fb.dht3?.humidity);
+    const cph = classifyRaw("ph", fb.ph?.value);
+    const ctds = classifyRaw("tds", fb.tds?.value);
+
+    const t1 = ct1.clamped, t2 = ct2.clamped, t3 = ct3.clamped;
+    const h1 = ch1.clamped, h2 = ch2.clamped, h3 = ch3.clamped;
+    const phN = cph.clamped, tdsN = ctds.clamped;
 
     const tempAvg = avgValid([t1, t2, t3]);
     const humAvg = avgValid([h1, h2, h3]);
+
+    // Raw (pre-normalization) averages + per-metric out-of-range flags.
+    const rawSample: RawSample = {
+      rawTemp: avgValid([ct1.value, ct2.value, ct3.value]),
+      rawHumidity: avgValid([ch1.value, ch2.value, ch3.value]),
+      rawPh: cph.value,
+      rawTds: ctds.value,
+      errTemp: ct1.outOfRange || ct2.outOfRange || ct3.outOfRange,
+      errHumidity: ch1.outOfRange || ch2.outOfRange || ch3.outOfRange,
+      errPh: cph.outOfRange,
+      errTds: ctds.outOfRange,
+    };
+
 
     const readings: SensorReadings = {
       temp: {
