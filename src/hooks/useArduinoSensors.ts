@@ -32,6 +32,16 @@ export interface ArduinoSensorState {
     ph: number[];
     tds: number[];
     timestamps: string[];
+    // Raw (pre-normalization) averaged values + out-of-range flags so the UI
+    // can plot anomalies and show where an error first started.
+    rawTemp: number[];
+    rawHumidity: number[];
+    rawPh: number[];
+    rawTds: number[];
+    errTemp: boolean[];
+    errHumidity: boolean[];
+    errPh: boolean[];
+    errTds: boolean[];
   };
   logs: ArduinoLogEntry[];
 }
