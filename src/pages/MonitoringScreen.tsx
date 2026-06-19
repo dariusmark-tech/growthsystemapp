@@ -218,7 +218,17 @@ export default function MonitoringScreen() {
             );
           })}
         </div>
+
+        <ErrorTrend
+          show={history.errPh.some(Boolean)}
+          data={history.rawPh}
+          errors={history.errPh}
+          range={NORM_RANGES.ph}
+          color="hsl(265,60%,55%)"
+          label="pH"
+        />
       </AppCard>
+
 
       {/* TDS Card */}
       <AppCard className="mb-3">
