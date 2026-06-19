@@ -47,12 +47,17 @@ function round(n: number, d = 1) {
   return Math.round(n * f) / f;
 }
 
-// Clamp raw sensor reads into physically sensible ranges so noisy/garbage
-// values from a flaky probe don't blow out the UI. Returns NaN for unusable
-// readings (Arduino sometimes pushes -127, 0xFFFF, or stringly numbers).
+// Normalize raw sensor reads into physically sensible ranges so noisy/garbage
+// values from a flaky probe don't blow out the UI. Truly unusable reads
+// (non-numeric, or the well-known Arduino error/sentinel codes such as -127,
+// 65535/0xFFFF, NaN) become NaN and are excluded from averages. Everything
+// else is CLAMPED into the valid range so a slightly out-of-range value is
+// still shown instead of silently collapsing to 0.
 function normalize(key: "temp" | "humidity" | "ph" | "tds", raw: unknown): number {
   const n = Number(raw);
   if (!Number.isFinite(n)) return NaN;
+  // Common sensor failure sentinels — treat as missing, not as data.
+  if (n === -127 || n === 255 || n === 65535 || n === -999 || n === 999) return NaN;
   const ranges: Record<string, [number, number]> = {
     temp: [-10, 60],
     humidity: [0, 100],
@@ -60,8 +65,8 @@ function normalize(key: "temp" | "humidity" | "ph" | "tds", raw: unknown): numbe
     tds: [0, 3000],
   };
   const [min, max] = ranges[key];
-  if (n < min || n > max) return NaN;
-  return n;
+  // Clamp into the valid range instead of discarding.
+  return Math.min(Math.max(n, min), max);
 }
 
 function avgValid(vals: number[]): number {
