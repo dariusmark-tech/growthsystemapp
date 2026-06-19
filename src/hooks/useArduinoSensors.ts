@@ -130,9 +130,21 @@ function setState(patch: Partial<ArduinoSensorState>) {
   listeners.forEach((l) => l(state));
 }
 
-function pushHistory(r: SensorReadings, ts: string) {
+interface RawSample {
+  rawTemp: number;
+  rawHumidity: number;
+  rawPh: number;
+  rawTds: number;
+  errTemp: boolean;
+  errHumidity: boolean;
+  errPh: boolean;
+  errTds: boolean;
+}
+
+function pushHistory(r: SensorReadings, ts: string, raw: RawSample) {
   const h = state.history;
   const cap = (a: number[], v: number) => [...a, v].slice(-HISTORY_LIMIT);
+  const capB = (a: boolean[], v: boolean) => [...a, v].slice(-HISTORY_LIMIT);
   const status: ArduinoLogEntry["status"] =
     [getSensorStatus("temp", r.temp.avg), getSensorStatus("humidity", r.humidity), getSensorStatus("ph", r.ph), getSensorStatus("tds", r.tds)].some((s) => s === "danger")
       ? "Critical"
@@ -154,10 +166,19 @@ function pushHistory(r: SensorReadings, ts: string) {
       ph: cap(h.ph, r.ph),
       tds: cap(h.tds, r.tds),
       timestamps: [...h.timestamps, ts].slice(-HISTORY_LIMIT),
+      rawTemp: cap(h.rawTemp, Number.isFinite(raw.rawTemp) ? round(raw.rawTemp, 1) : r.temp.avg),
+      rawHumidity: cap(h.rawHumidity, Number.isFinite(raw.rawHumidity) ? round(raw.rawHumidity, 1) : r.humidity),
+      rawPh: cap(h.rawPh, Number.isFinite(raw.rawPh) ? round(raw.rawPh, 2) : r.ph),
+      rawTds: cap(h.rawTds, Number.isFinite(raw.rawTds) ? Math.round(raw.rawTds) : r.tds),
+      errTemp: capB(h.errTemp, raw.errTemp),
+      errHumidity: capB(h.errHumidity, raw.errHumidity),
+      errPh: capB(h.errPh, raw.errPh),
+      errTds: capB(h.errTds, raw.errTds),
     },
     logs: [newLog, ...state.logs].slice(0, LOG_LIMIT),
   });
 }
+
 
 async function tick() {
   try {
