@@ -130,7 +130,18 @@ export default function MonitoringScreen() {
           )}
           <p className="text-[10px] text-text-faint text-center -mt-1">Temperature vs. Time</p>
         </div>
+
+        <ErrorTrend
+          show={history.errTemp.some(Boolean)}
+          data={history.rawTemp}
+          errors={history.errTemp}
+          range={NORM_RANGES.temp}
+          color="hsl(152,55%,28%)"
+          label="Temperature"
+          unit="°C"
+        />
       </AppCard>
+
 
       {/* Humidity Card */}
       <AppCard className="mb-3">
