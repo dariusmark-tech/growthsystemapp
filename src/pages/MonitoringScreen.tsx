@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { AppCard, StatusBadge, SensorBar } from "@/components/shared/SharedComponents";
 import { SensorLineChart } from "@/components/shared/SensorLineChart";
+import { SensorErrorChart } from "@/components/shared/SensorErrorChart";
 import { getSensorStatus } from "@/utils/mockData";
-import { useArduinoSensors } from "@/hooks/useArduinoSensors";
+import { useArduinoSensors, NORM_RANGES } from "@/hooks/useArduinoSensors";
 import { Settings, CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
 
 const TIME_RANGES = ['1h', '6h', '24h', '7d'];
