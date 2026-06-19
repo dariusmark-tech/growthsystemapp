@@ -32,6 +32,16 @@ export interface ArduinoSensorState {
     ph: number[];
     tds: number[];
     timestamps: string[];
+    // Raw (pre-normalization) averaged values + out-of-range flags so the UI
+    // can plot anomalies and show where an error first started.
+    rawTemp: number[];
+    rawHumidity: number[];
+    rawPh: number[];
+    rawTds: number[];
+    errTemp: boolean[];
+    errHumidity: boolean[];
+    errPh: boolean[];
+    errTds: boolean[];
   };
   logs: ArduinoLogEntry[];
 }
@@ -47,26 +57,45 @@ function round(n: number, d = 1) {
   return Math.round(n * f) / f;
 }
 
+export type SensorKey = "temp" | "humidity" | "ph" | "tds";
+
+// The physically-sensible "normalization" range for each sensor. Values outside
+// this band are treated as an error/anomaly (still recorded, but flagged).
+export const NORM_RANGES: Record<SensorKey, [number, number]> = {
+  temp: [-10, 60],
+  humidity: [0, 100],
+  ph: [0, 14],
+  tds: [0, 3000],
+};
+
+// Inspect a raw sensor read. Returns:
+//  - value:      the true raw number (NaN if non-numeric / sentinel error code)
+//  - clamped:    the normalized value, bounded into NORM_RANGES (NaN if invalid)
+//  - outOfRange: true when the raw value is real data but outside the band
+function classifyRaw(key: SensorKey, raw: unknown): {
+  value: number;
+  clamped: number;
+  outOfRange: boolean;
+} {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return { value: NaN, clamped: NaN, outOfRange: false };
+  // Common sensor failure sentinels — treat as missing, not as data.
+  if (n === -127 || n === 255 || n === 65535 || n === -999 || n === 999) {
+    return { value: NaN, clamped: NaN, outOfRange: false };
+  }
+  const [min, max] = NORM_RANGES[key];
+  const outOfRange = n < min || n > max;
+  return { value: n, clamped: Math.min(Math.max(n, min), max), outOfRange };
+}
+
 // Normalize raw sensor reads into physically sensible ranges so noisy/garbage
 // values from a flaky probe don't blow out the UI. Truly unusable reads
 // (non-numeric, or the well-known Arduino error/sentinel codes such as -127,
 // 65535/0xFFFF, NaN) become NaN and are excluded from averages. Everything
 // else is CLAMPED into the valid range so a slightly out-of-range value is
 // still shown instead of silently collapsing to 0.
-function normalize(key: "temp" | "humidity" | "ph" | "tds", raw: unknown): number {
-  const n = Number(raw);
-  if (!Number.isFinite(n)) return NaN;
-  // Common sensor failure sentinels — treat as missing, not as data.
-  if (n === -127 || n === 255 || n === 65535 || n === -999 || n === 999) return NaN;
-  const ranges: Record<string, [number, number]> = {
-    temp: [-10, 60],
-    humidity: [0, 100],
-    ph: [0, 14],
-    tds: [0, 3000],
-  };
-  const [min, max] = ranges[key];
-  // Clamp into the valid range instead of discarding.
-  return Math.min(Math.max(n, min), max);
+function normalize(key: SensorKey, raw: unknown): number {
+  return classifyRaw(key, raw).clamped;
 }
 
 function avgValid(vals: number[]): number {
@@ -83,7 +112,11 @@ let state: ArduinoSensorState = {
   lastUpdated: null,
   error: null,
   loading: true,
-  history: { temp: [], humidity: [], ph: [], tds: [], timestamps: [] },
+  history: {
+    temp: [], humidity: [], ph: [], tds: [], timestamps: [],
+    rawTemp: [], rawHumidity: [], rawPh: [], rawTds: [],
+    errTemp: [], errHumidity: [], errPh: [], errTds: [],
+  },
   logs: [],
 };
 let pollHandle: ReturnType<typeof setInterval> | null = null;
@@ -97,9 +130,21 @@ function setState(patch: Partial<ArduinoSensorState>) {
   listeners.forEach((l) => l(state));
 }
 
-function pushHistory(r: SensorReadings, ts: string) {
+interface RawSample {
+  rawTemp: number;
+  rawHumidity: number;
+  rawPh: number;
+  rawTds: number;
+  errTemp: boolean;
+  errHumidity: boolean;
+  errPh: boolean;
+  errTds: boolean;
+}
+
+function pushHistory(r: SensorReadings, ts: string, raw: RawSample) {
   const h = state.history;
   const cap = (a: number[], v: number) => [...a, v].slice(-HISTORY_LIMIT);
+  const capB = (a: boolean[], v: boolean) => [...a, v].slice(-HISTORY_LIMIT);
   const status: ArduinoLogEntry["status"] =
     [getSensorStatus("temp", r.temp.avg), getSensorStatus("humidity", r.humidity), getSensorStatus("ph", r.ph), getSensorStatus("tds", r.tds)].some((s) => s === "danger")
       ? "Critical"
@@ -121,10 +166,19 @@ function pushHistory(r: SensorReadings, ts: string) {
       ph: cap(h.ph, r.ph),
       tds: cap(h.tds, r.tds),
       timestamps: [...h.timestamps, ts].slice(-HISTORY_LIMIT),
+      rawTemp: cap(h.rawTemp, Number.isFinite(raw.rawTemp) ? round(raw.rawTemp, 1) : r.temp.avg),
+      rawHumidity: cap(h.rawHumidity, Number.isFinite(raw.rawHumidity) ? round(raw.rawHumidity, 1) : r.humidity),
+      rawPh: cap(h.rawPh, Number.isFinite(raw.rawPh) ? round(raw.rawPh, 2) : r.ph),
+      rawTds: cap(h.rawTds, Number.isFinite(raw.rawTds) ? Math.round(raw.rawTds) : r.tds),
+      errTemp: capB(h.errTemp, raw.errTemp),
+      errHumidity: capB(h.errHumidity, raw.errHumidity),
+      errPh: capB(h.errPh, raw.errPh),
+      errTds: capB(h.errTds, raw.errTds),
     },
     logs: [newLog, ...state.logs].slice(0, LOG_LIMIT),
   });
 }
+
 
 async function tick() {
   try {
@@ -187,17 +241,34 @@ async function tick() {
       return;
     }
 
-    const t1 = normalize("temp", fb.dht1?.temperature);
-    const t2 = normalize("temp", fb.dht2?.temperature);
-    const t3 = normalize("temp", fb.dht3?.temperature);
-    const h1 = normalize("humidity", fb.dht1?.humidity);
-    const h2 = normalize("humidity", fb.dht2?.humidity);
-    const h3 = normalize("humidity", fb.dht3?.humidity);
-    const phN = normalize("ph", fb.ph?.value);
-    const tdsN = normalize("tds", fb.tds?.value);
+    const ct1 = classifyRaw("temp", fb.dht1?.temperature);
+    const ct2 = classifyRaw("temp", fb.dht2?.temperature);
+    const ct3 = classifyRaw("temp", fb.dht3?.temperature);
+    const ch1 = classifyRaw("humidity", fb.dht1?.humidity);
+    const ch2 = classifyRaw("humidity", fb.dht2?.humidity);
+    const ch3 = classifyRaw("humidity", fb.dht3?.humidity);
+    const cph = classifyRaw("ph", fb.ph?.value);
+    const ctds = classifyRaw("tds", fb.tds?.value);
+
+    const t1 = ct1.clamped, t2 = ct2.clamped, t3 = ct3.clamped;
+    const h1 = ch1.clamped, h2 = ch2.clamped, h3 = ch3.clamped;
+    const phN = cph.clamped, tdsN = ctds.clamped;
 
     const tempAvg = avgValid([t1, t2, t3]);
     const humAvg = avgValid([h1, h2, h3]);
+
+    // Raw (pre-normalization) averages + per-metric out-of-range flags.
+    const rawSample: RawSample = {
+      rawTemp: avgValid([ct1.value, ct2.value, ct3.value]),
+      rawHumidity: avgValid([ch1.value, ch2.value, ch3.value]),
+      rawPh: cph.value,
+      rawTds: ctds.value,
+      errTemp: ct1.outOfRange || ct2.outOfRange || ct3.outOfRange,
+      errHumidity: ch1.outOfRange || ch2.outOfRange || ch3.outOfRange,
+      errPh: cph.outOfRange,
+      errTds: ctds.outOfRange,
+    };
+
 
     const readings: SensorReadings = {
       temp: {
@@ -221,7 +292,7 @@ async function tick() {
       error: null,
       loading: false,
     });
-    if (wallClockIso) pushHistory(readings, wallClockIso);
+    if (wallClockIso) pushHistory(readings, wallClockIso, rawSample);
   } catch (e) {
     setState({
       loading: false,

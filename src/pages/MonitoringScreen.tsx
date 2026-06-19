@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { AppCard, StatusBadge, SensorBar } from "@/components/shared/SharedComponents";
 import { SensorLineChart } from "@/components/shared/SensorLineChart";
+import { SensorErrorChart } from "@/components/shared/SensorErrorChart";
 import { getSensorStatus } from "@/utils/mockData";
-import { useArduinoSensors } from "@/hooks/useArduinoSensors";
+import { useArduinoSensors, NORM_RANGES } from "@/hooks/useArduinoSensors";
 import { Settings, CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
 
 const TIME_RANGES = ['1h', '6h', '24h', '7d'];
@@ -129,7 +130,18 @@ export default function MonitoringScreen() {
           )}
           <p className="text-[10px] text-text-faint text-center -mt-1">Temperature vs. Time</p>
         </div>
+
+        <ErrorTrend
+          show={history.errTemp.some(Boolean)}
+          data={history.rawTemp}
+          errors={history.errTemp}
+          range={NORM_RANGES.temp}
+          color="hsl(152,55%,28%)"
+          label="Temperature"
+          unit="°C"
+        />
       </AppCard>
+
 
       {/* Humidity Card */}
       <AppCard className="mb-3">
@@ -158,7 +170,18 @@ export default function MonitoringScreen() {
           )}
           <p className="text-[10px] text-text-faint text-center -mt-1">Humidity vs. Time</p>
         </div>
+
+        <ErrorTrend
+          show={history.errHumidity.some(Boolean)}
+          data={history.rawHumidity}
+          errors={history.errHumidity}
+          range={NORM_RANGES.humidity}
+          color="hsl(152,60%,42%)"
+          label="Humidity"
+          unit="%"
+        />
       </AppCard>
+
 
       {/* pH Card */}
       <AppCard className="mb-3">
@@ -195,7 +218,17 @@ export default function MonitoringScreen() {
             );
           })}
         </div>
+
+        <ErrorTrend
+          show={history.errPh.some(Boolean)}
+          data={history.rawPh}
+          errors={history.errPh}
+          range={NORM_RANGES.ph}
+          color="hsl(265,60%,55%)"
+          label="pH"
+        />
       </AppCard>
+
 
       {/* TDS Card */}
       <AppCard className="mb-3">
@@ -228,7 +261,51 @@ export default function MonitoringScreen() {
           )}
           <p className="text-[10px] text-text-faint text-center -mt-1">TDS vs. Time</p>
         </div>
+
+        <ErrorTrend
+          show={history.errTds.some(Boolean)}
+          data={history.rawTds}
+          errors={history.errTds}
+          range={NORM_RANGES.tds}
+          color="hsl(35,85%,50%)"
+          label="TDS"
+          unit="ppm"
+        />
       </AppCard>
     </div>
   );
 }
+
+interface ErrorTrendProps {
+  show: boolean;
+  data: number[];
+  errors: boolean[];
+  range: [number, number];
+  color: string;
+  label: string;
+  unit?: string;
+}
+
+function ErrorTrend({ show, data, errors, range, color, label, unit }: ErrorTrendProps) {
+  if (!show || data.length < 2) return null;
+  return (
+    <div className="mt-4 pt-3 border-t border-danger-border">
+      <div className="flex items-center gap-1.5 mb-2">
+        <AlertTriangle size={13} className="text-danger" strokeWidth={2.5} />
+        <span className="text-[12px] font-bold text-danger">Out-of-range error trend</span>
+      </div>
+      <SensorErrorChart
+        data={data}
+        errors={errors}
+        range={range}
+        color={color}
+        yLabel={label}
+        unit={unit}
+      />
+      <p className="text-[10px] text-text-faint text-center -mt-1">
+        Red points fall outside the valid {range[0]}–{range[1]}{unit ? ` ${unit}` : ""} range
+      </p>
+    </div>
+  );
+}
+
