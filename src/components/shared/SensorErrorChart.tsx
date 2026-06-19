@@ -10,7 +10,7 @@ import {
   ReferenceArea,
   ReferenceLine,
 } from "recharts";
-import type { DotProps } from "recharts";
+
 
 interface Props {
   /** Raw (pre-normalization) values over time. */
