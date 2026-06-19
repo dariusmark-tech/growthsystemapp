@@ -170,7 +170,18 @@ export default function MonitoringScreen() {
           )}
           <p className="text-[10px] text-text-faint text-center -mt-1">Humidity vs. Time</p>
         </div>
+
+        <ErrorTrend
+          show={history.errHumidity.some(Boolean)}
+          data={history.rawHumidity}
+          errors={history.errHumidity}
+          range={NORM_RANGES.humidity}
+          color="hsl(152,60%,42%)"
+          label="Humidity"
+          unit="%"
+        />
       </AppCard>
+
 
       {/* pH Card */}
       <AppCard className="mb-3">
