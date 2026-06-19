@@ -112,7 +112,11 @@ let state: ArduinoSensorState = {
   lastUpdated: null,
   error: null,
   loading: true,
-  history: { temp: [], humidity: [], ph: [], tds: [], timestamps: [] },
+  history: {
+    temp: [], humidity: [], ph: [], tds: [], timestamps: [],
+    rawTemp: [], rawHumidity: [], rawPh: [], rawTds: [],
+    errTemp: [], errHumidity: [], errPh: [], errTds: [],
+  },
   logs: [],
 };
 let pollHandle: ReturnType<typeof setInterval> | null = null;
