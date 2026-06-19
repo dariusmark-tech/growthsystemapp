@@ -47,26 +47,45 @@ function round(n: number, d = 1) {
   return Math.round(n * f) / f;
 }
 
+export type SensorKey = "temp" | "humidity" | "ph" | "tds";
+
+// The physically-sensible "normalization" range for each sensor. Values outside
+// this band are treated as an error/anomaly (still recorded, but flagged).
+export const NORM_RANGES: Record<SensorKey, [number, number]> = {
+  temp: [-10, 60],
+  humidity: [0, 100],
+  ph: [0, 14],
+  tds: [0, 3000],
+};
+
+// Inspect a raw sensor read. Returns:
+//  - value:      the true raw number (NaN if non-numeric / sentinel error code)
+//  - clamped:    the normalized value, bounded into NORM_RANGES (NaN if invalid)
+//  - outOfRange: true when the raw value is real data but outside the band
+function classifyRaw(key: SensorKey, raw: unknown): {
+  value: number;
+  clamped: number;
+  outOfRange: boolean;
+} {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return { value: NaN, clamped: NaN, outOfRange: false };
+  // Common sensor failure sentinels — treat as missing, not as data.
+  if (n === -127 || n === 255 || n === 65535 || n === -999 || n === 999) {
+    return { value: NaN, clamped: NaN, outOfRange: false };
+  }
+  const [min, max] = NORM_RANGES[key];
+  const outOfRange = n < min || n > max;
+  return { value: n, clamped: Math.min(Math.max(n, min), max), outOfRange };
+}
+
 // Normalize raw sensor reads into physically sensible ranges so noisy/garbage
 // values from a flaky probe don't blow out the UI. Truly unusable reads
 // (non-numeric, or the well-known Arduino error/sentinel codes such as -127,
 // 65535/0xFFFF, NaN) become NaN and are excluded from averages. Everything
 // else is CLAMPED into the valid range so a slightly out-of-range value is
 // still shown instead of silently collapsing to 0.
-function normalize(key: "temp" | "humidity" | "ph" | "tds", raw: unknown): number {
-  const n = Number(raw);
-  if (!Number.isFinite(n)) return NaN;
-  // Common sensor failure sentinels — treat as missing, not as data.
-  if (n === -127 || n === 255 || n === 65535 || n === -999 || n === 999) return NaN;
-  const ranges: Record<string, [number, number]> = {
-    temp: [-10, 60],
-    humidity: [0, 100],
-    ph: [0, 14],
-    tds: [0, 3000],
-  };
-  const [min, max] = ranges[key];
-  // Clamp into the valid range instead of discarding.
-  return Math.min(Math.max(n, min), max);
+function normalize(key: SensorKey, raw: unknown): number {
+  return classifyRaw(key, raw).clamped;
 }
 
 function avgValid(vals: number[]): number {
