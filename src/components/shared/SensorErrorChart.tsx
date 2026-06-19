@@ -32,7 +32,7 @@ interface ErrPoint {
 }
 
 // Render dots in red when the point is an error, otherwise the normal color.
-function ErrorDot({ cx, cy, payload, color }: DotProps & { payload?: ErrPoint; color: string }) {
+function ErrorDot({ cx, cy, payload, color }: { cx?: number; cy?: number; payload?: ErrPoint; color: string }) {
   if (cx == null || cy == null || !payload) return null;
   const isErr = payload.err;
   return (
